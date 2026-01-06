@@ -11,7 +11,8 @@ import { ArrowLeft, Clock, Trash2, Edit } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteRecipeButton from "./delete-recipe-button";
-import { RecipeWithRelations } from "@/lib/types/recipe";
+import { RecipeWithRelations, Tag } from "@/lib/types/recipe";
+import RecipeTags from "./recipe-tags";
 
 export default async function RecipeDetailPage({
   params,
@@ -46,7 +47,7 @@ export default async function RecipeDetailPage({
   // Await params to get the id
   const { id } = await params;
 
-  // Fetch recipe with images
+  // Fetch recipe with images and tags
   const { data: recipe, error } = await supabase
     .from("recipes")
     .select(
@@ -57,6 +58,13 @@ export default async function RecipeDetailPage({
         image_url,
         storage_path,
         display_order
+      ),
+      tags (
+        id,
+        name,
+        color,
+        user_id,
+        created_at
       )
     `
     )
@@ -68,7 +76,7 @@ export default async function RecipeDetailPage({
     notFound();
   }
 
-  const typedRecipe = recipe as RecipeWithRelations;
+  const typedRecipe = recipe as RecipeWithRelations & { tags: Tag[] };
 
   return (
     <div className="min-h-screen">
@@ -114,6 +122,9 @@ export default async function RecipeDetailPage({
             </div>
           )}
         </div>
+
+        {/* Tags */}
+        <RecipeTags recipeId={typedRecipe.id} tags={typedRecipe.tags || []} />
 
         {/* Images */}
         {typedRecipe.images && typedRecipe.images.length > 0 && (

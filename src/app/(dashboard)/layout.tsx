@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
-import { BookOpen, Plus, FolderOpen, Tag } from "lucide-react";
+import { BookOpen, Plus, Hamburger, FolderOpen, Tag } from "lucide-react";
 import Link from "next/link";
 import LogoutButton from "./logout-button";
 
@@ -61,26 +61,14 @@ export default async function DashboardLayout({
           <nav className="flex items-center gap-4">
             <Link href="/recipes">
               <Button variant="ghost" size="sm">
-                <FolderOpen className="h-4 w-4 mr-2" />
+                <Hamburger className="h-4 w-4 mr-2" />
                 Recipes
-              </Button>
-            </Link>
-            <Link href="/categories">
-              <Button variant="ghost" size="sm">
-                <Tag className="h-4 w-4 mr-2" />
-                Categories
               </Button>
             </Link>
             <Link href="/collections">
               <Button variant="ghost" size="sm">
                 <FolderOpen className="h-4 w-4 mr-2" />
                 Collections
-              </Button>
-            </Link>
-            <Link href="/tags">
-              <Button variant="ghost" size="sm">
-                <Tag className="h-4 w-4 mr-2" />
-                Tags
               </Button>
             </Link>
             <Link href="/recipes/new">

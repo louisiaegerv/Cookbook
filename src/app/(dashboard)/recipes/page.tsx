@@ -29,7 +29,7 @@ export default async function RecipesPage() {
     );
   }
 
-  // Fetch recipes with images
+  // Fetch recipes with images and tags
   const { data: recipes } = await supabase
     .from("recipes")
     .select(
@@ -38,6 +38,15 @@ export default async function RecipesPage() {
       recipe_images (
         id,
         image_url
+      ),
+      recipe_tags (
+        tags (
+          id,
+          name,
+          color,
+          user_id,
+          created_at
+        )
       )
     `
     )
