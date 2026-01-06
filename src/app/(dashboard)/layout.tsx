@@ -1,0 +1,99 @@
+import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
+import { BookOpen, Plus, FolderOpen, Tag } from "lucide-react";
+import Link from "next/link";
+import LogoutButton from "./logout-button";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>
+              Please sign in to access your recipes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Link href="/login">
+              <Button className="w-full">Sign In</Button>
+            </Link>
+            <Link href="/signup">
+              <Button variant="outline" className="w-full">
+                Sign Up
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b bg-background">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link
+            href="/recipes"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            <BookOpen className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-bold">Cookbook</h1>
+          </Link>
+          <nav className="flex items-center gap-4">
+            <Link href="/recipes">
+              <Button variant="ghost" size="sm">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Recipes
+              </Button>
+            </Link>
+            <Link href="/categories">
+              <Button variant="ghost" size="sm">
+                <Tag className="h-4 w-4 mr-2" />
+                Categories
+              </Button>
+            </Link>
+            <Link href="/collections">
+              <Button variant="ghost" size="sm">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Collections
+              </Button>
+            </Link>
+            <Link href="/tags">
+              <Button variant="ghost" size="sm">
+                <Tag className="h-4 w-4 mr-2" />
+                Tags
+              </Button>
+            </Link>
+            <Link href="/recipes/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Recipe
+              </Button>
+            </Link>
+            <LogoutButton />
+          </nav>
+        </div>
+      </header>
+      <main className="flex-1">{children}</main>
+    </div>
+  );
+}
