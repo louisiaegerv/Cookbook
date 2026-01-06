@@ -1,8 +1,29 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Utensils, Tag, FolderOpen } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  // Check for user session
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b">
@@ -12,12 +33,20 @@ export default function Home() {
             Cookbook
           </h1>
           <div className="flex gap-2">
-            <Link href="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link href="/signup">
-              <Button>Sign Up</Button>
-            </Link>
+            {session ? (
+              <Link href="/recipes/new">
+                <Button>Create Recipe</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Login</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button>Sign Up</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -33,12 +62,25 @@ export default function Home() {
               Never lose a recipe again.
             </p>
             <div className="flex gap-4 justify-center">
-              <Link href="/signup">
-                <Button size="lg">Get Started Free</Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline">
-                  Sign In
+              {session ? (
+                <Link href="/recipes/new">
+                  <Button size="lg">Create Recipe</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/signup">
+                    <Button size="lg">Get Started Free</Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button size="lg" variant="outline">
+                      Sign In
+                    </Button>
+                  </Link>
+                </>
+              )}
+              <Link href="/recipes">
+                <Button size="lg" variant="ghost">
+                  Browse Recipes
                 </Button>
               </Link>
             </div>

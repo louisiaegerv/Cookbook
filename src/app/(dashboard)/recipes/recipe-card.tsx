@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Tag as TagIcon } from "lucide-react";
+import { MoreVertical, Tag as TagIcon, Eye } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import TagManagerModal from "@/components/ui/tag-manager-modal";
@@ -18,9 +18,10 @@ interface RecipeCardProps {
   recipe: {
     id: string;
     title: string;
-    description?: string;
+    description?: string | null;
     ingredients: any[];
     cooking_time?: number;
+    view_count?: number;
     recipe_images?: {
       id: string;
       image_url: string;
@@ -29,9 +30,13 @@ interface RecipeCardProps {
       tags: Tag;
     }[];
   };
+  showViewCount?: boolean;
 }
 
-export default function RecipeCard({ recipe }: RecipeCardProps) {
+export default function RecipeCard({
+  recipe,
+  showViewCount = false,
+}: RecipeCardProps) {
   const [showTagManager, setShowTagManager] = useState(false);
   const [currentTags, setCurrentTags] = useState(
     recipe.recipe_tags?.map((rt) => rt.tags) || []
@@ -89,6 +94,15 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                 <h2 className="text-white font-semibold text-lg line-clamp-2 drop-shadow-md">
                   {recipe.title}
                 </h2>
+                {showViewCount && (
+                  <div className="flex items-center gap-1 text-white/90 text-sm mt-1">
+                    <Eye className="h-3 w-3" />
+                    <span>
+                      {recipe.view_count || 0} view
+                      {recipe.view_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* More button on hover */}
@@ -126,6 +140,15 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                   {recipe.title}
                 </h2>
                 <p className="text-sm text-muted-foreground">No image</p>
+                {showViewCount && (
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm mt-2">
+                    <Eye className="h-3 w-3" />
+                    <span>
+                      {recipe.view_count || 0} view
+                      {recipe.view_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Tags overlay */}

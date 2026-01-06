@@ -59,11 +59,8 @@ export default async function PublicRecipeDetailPage({
     notFound();
   }
 
-  // Increment view count (fire and forget, don't await)
-  supabase
-    .from("recipes")
-    .update({ view_count: (recipe.view_count || 0) + 1 })
-    .eq("id", id);
+  // Increment view count using RPC function (works for both authenticated and unauthenticated users)
+  supabase.rpc("increment_recipe_view_count", { recipe_id: id });
 
   const typedRecipe = recipe as RecipeWithRelations & {
     recipe_tags?: { tags: Tag }[];
@@ -79,10 +76,10 @@ export default async function PublicRecipeDetailPage({
     <div className="min-h-screen">
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Back button */}
-        <Link href="/">
+        <Link href="/recipes">
           <Button variant="ghost" className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
+            Back to Recipes
           </Button>
         </Link>
 

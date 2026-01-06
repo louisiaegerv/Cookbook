@@ -36,6 +36,11 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
+  // Check for user session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   // Allow public routes
   const isPublicRoute =
     pathname === "/" ||
@@ -46,11 +51,6 @@ export async function middleware(req: NextRequest) {
   if (isPublicRoute) {
     return res;
   }
-
-  // Check for user session
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
 
   // If user is not authenticated, redirect to login
   if (!session && pathname.startsWith("/(dashboard)")) {
