@@ -25,13 +25,17 @@ interface RecipeCardProps {
       id: string;
       image_url: string;
     }[];
-    tags?: Tag[];
+    recipe_tags?: {
+      tags: Tag;
+    }[];
   };
 }
 
 export default function RecipeCard({ recipe }: RecipeCardProps) {
   const [showTagManager, setShowTagManager] = useState(false);
-  const [currentTags, setCurrentTags] = useState(recipe.tags || []);
+  const [currentTags, setCurrentTags] = useState(
+    recipe.recipe_tags?.map((rt) => rt.tags) || []
+  );
   const firstImage = recipe.recipe_images && recipe.recipe_images[0];
 
   return (

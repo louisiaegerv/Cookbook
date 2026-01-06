@@ -177,6 +177,9 @@ export default function RecipeForm() {
           rows={3}
           disabled={loading}
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Markdown formatting supported (e.g., **bold**, *italic*, [link](url))
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -202,6 +205,10 @@ export default function RecipeForm() {
           rows={10}
           disabled={loading}
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Markdown formatting supported (e.g., **bold**, *italic*, # headers,
+          [link](url))
+        </p>
       </div>
 
       <div className="space-y-2">

@@ -40,7 +40,8 @@ export async function middleware(req: NextRequest) {
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/signup");
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/recipes/");
 
   if (isPublicRoute) {
     return res;

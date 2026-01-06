@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import ImageEditor from "@/components/ui/image-editor";
 import { Save, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,10 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [existingImages, setExistingImages] = useState(
+    recipe.recipe_images || []
+  );
+  const [newImages, setNewImages] = useState<File[]>([]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,6 +92,63 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         return;
       }
 
+      // Update existing images display order
+      for (const image of existingImages) {
+        const { error: updateImageError } = await supabase
+          .from("recipe_images")
+          .update({ display_order: image.display_order })
+          .eq("id", image.id);
+
+        if (updateImageError) {
+          console.error("Error updating image order:", updateImageError);
+        }
+      }
+
+      // Upload new images
+      if (newImages.length > 0) {
+        for (let i = 0; i < newImages.length; i++) {
+          const file = newImages[i];
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(7)}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("recipe-images")
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error("Error uploading image:", uploadError);
+            setError(`Failed to upload image ${file.name}`);
+            setLoading(false);
+            return;
+          }
+
+          // Get public URL
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("recipe-images").getPublicUrl(filePath);
+
+          // Insert image record
+          const { error: insertError } = await supabase
+            .from("recipe_images")
+            .insert({
+              recipe_id: recipe.id,
+              image_url: publicUrl,
+              storage_path: filePath,
+              display_order: existingImages.length + i,
+            });
+
+          if (insertError) {
+            console.error("Error inserting image record:", insertError);
+            setError(`Failed to save image ${file.name}`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       router.push(`/recipes/${recipe.id}`);
       router.refresh();
     } catch (err) {
@@ -126,6 +188,9 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
           rows={3}
           disabled={loading}
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Markdown formatting supported (e.g., **bold**, *italic*, [link](url))
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -153,6 +218,10 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
           rows={10}
           disabled={loading}
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Markdown formatting supported (e.g., **bold**, *italic*, # headers,
+          [link](url))
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -170,28 +239,14 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
 
       <div className="space-y-2">
         <Label>Images</Label>
-        <p className="text-sm text-muted-foreground mb-4">
-          Image editing is not yet available. You can add new images or remove
-          existing ones when creating a new version of the recipe.
-        </p>
-        {recipe.recipe_images && recipe.recipe_images.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {recipe.recipe_images
-              .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-              .map((image) => (
-                <div
-                  key={image.id}
-                  className="aspect-square rounded-lg overflow-hidden border"
-                >
-                  <img
-                    src={image.image_url}
-                    alt={`${recipe.title} photo`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-          </div>
-        )}
+        <ImageEditor
+          existingImages={existingImages}
+          newImages={newImages}
+          onExistingImagesChange={setExistingImages}
+          onNewImagesChange={setNewImages}
+          maxImages={10}
+          disabled={loading}
+        />
       </div>
 
       <div className="flex justify-end gap-4">

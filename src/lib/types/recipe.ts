@@ -6,6 +6,7 @@ export interface Recipe {
   ingredients: string[];
   instructions: string;
   cooking_time: number | null;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }
