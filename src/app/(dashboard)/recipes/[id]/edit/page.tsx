@@ -2,13 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import EditRecipeForm from "./edit-form";
+import { RecipeWithRelations } from "@/lib/types/recipe";
 
 export default async function EditRecipePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -16,6 +17,9 @@ export default async function EditRecipePage({
   if (!user) {
     redirect("/login");
   }
+
+  // Await params to get the id
+  const { id } = await params;
 
   // Fetch recipe with images
   const { data: recipe, error } = await supabase
@@ -31,7 +35,7 @@ export default async function EditRecipePage({
       )
     `
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
@@ -39,13 +43,13 @@ export default async function EditRecipePage({
     notFound();
   }
 
-  const typedRecipe = recipe as RecipeWithImages;
+  const typedRecipe = recipe as RecipeWithRelations;
 
   return (
     <div className="min-h-screen">
       <header className="border-b bg-background">
         <div className="container mx-auto px-4 py-4 flex items-center">
-          <Link href={`/recipes/${params.id}`}>
+          <Link href={`/recipes/${id}`}>
             <button className="px-3 py-2 rounded-md hover:bg-muted transition-colors">
               Cancel
             </button>

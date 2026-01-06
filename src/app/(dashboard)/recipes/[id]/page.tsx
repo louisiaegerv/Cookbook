@@ -11,32 +11,14 @@ import { ArrowLeft, Clock, Trash2, Edit } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteRecipeButton from "./delete-recipe-button";
-
-interface RecipeWithImages {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  ingredients: string[];
-  instructions: string;
-  cooking_time: number | null;
-  created_at: string;
-  updated_at: string;
-  recipe_images: Array<{
-    id: string;
-    recipe_id: string;
-    image_url: string;
-    storage_path: string;
-    display_order: number | null;
-  }>;
-}
+import { RecipeWithRelations } from "@/lib/types/recipe";
 
 export default async function RecipeDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -61,6 +43,9 @@ export default async function RecipeDetailPage({
     );
   }
 
+  // Await params to get the id
+  const { id } = await params;
+
   // Fetch recipe with images
   const { data: recipe, error } = await supabase
     .from("recipes")
@@ -75,7 +60,7 @@ export default async function RecipeDetailPage({
       )
     `
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
@@ -83,7 +68,7 @@ export default async function RecipeDetailPage({
     notFound();
   }
 
-  const typedRecipe = recipe as RecipeWithImages;
+  const typedRecipe = recipe as RecipeWithRelations;
 
   return (
     <div className="min-h-screen">
@@ -131,11 +116,11 @@ export default async function RecipeDetailPage({
         </div>
 
         {/* Images */}
-        {typedRecipe.recipe_images && typedRecipe.recipe_images.length > 0 && (
+        {typedRecipe.images && typedRecipe.images.length > 0 && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-4">Photos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {typedRecipe.recipe_images
+              {typedRecipe.images
                 .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
                 .map((image) => (
                   <div

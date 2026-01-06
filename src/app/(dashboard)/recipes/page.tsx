@@ -12,7 +12,7 @@ import Link from "next/link";
 import DeleteRecipeButton from "./[id]/delete-recipe-button";
 
 export default async function RecipesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

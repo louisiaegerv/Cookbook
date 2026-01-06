@@ -11,7 +11,7 @@ import Link from "next/link";
 import RecipeForm from "./recipe-form";
 
 export default async function NewRecipePage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
