@@ -43,7 +43,10 @@ export default async function CollectionsPage() {
       <div className="container mx-auto py-6 px-4 sm:py-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold">My Collections</h1>
-          <Link href="/collections/new" className="w-full sm:w-auto">
+          <Link
+            href="/collections/new"
+            className="hidden sm:block w-full sm:w-auto"
+          >
             <Button className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Collection
@@ -61,12 +64,18 @@ export default async function CollectionsPage() {
               <p className="text-muted-foreground text-sm sm:text-base">
                 Create your first collection to organize your recipes
               </p>
-              <Link href="/collections/new" className="block">
+              <Link
+                href="/collections/new"
+                className="hidden sm:block w-full sm:w-auto"
+              >
                 <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Your First Collection
                 </Button>
               </Link>
+              <p className="text-sm text-muted-foreground sm:hidden">
+                Use the + button in the bottom navigation to create a collection
+              </p>
             </div>
           </Card>
         ) : (

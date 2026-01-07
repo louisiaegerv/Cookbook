@@ -41,6 +41,7 @@ interface RecipeCardProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (recipeId: string) => void;
+  onEnableMultiSelect?: (recipeId: string) => void;
   collectionId?: string;
 }
 
@@ -50,6 +51,7 @@ export default function RecipeCard({
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
+  onEnableMultiSelect,
   collectionId,
 }: RecipeCardProps) {
   const [showTagManager, setShowTagManager] = useState(false);
@@ -205,7 +207,24 @@ export default function RecipeCard({
                       <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent
+                    align="end"
+                    side="bottom"
+                    sideOffset={4}
+                    className="w-48"
+                  >
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onEnableMultiSelect) {
+                          onEnableMultiSelect(recipe.id);
+                        }
+                      }}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Select This Recipe
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.preventDefault();
@@ -313,7 +332,24 @@ export default function RecipeCard({
                       <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent
+                    align="end"
+                    side="bottom"
+                    sideOffset={4}
+                    className="w-48"
+                  >
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onEnableMultiSelect) {
+                          onEnableMultiSelect(recipe.id);
+                        }
+                      }}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Select This Recipe
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.preventDefault();

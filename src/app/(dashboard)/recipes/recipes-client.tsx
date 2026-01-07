@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Square, Plus } from "lucide-react";
+import {
+  CheckSquare,
+  Square,
+  Plus,
+  Grid,
+  List,
+  LayoutGrid,
+} from "lucide-react";
 import Link from "next/link";
 import RecipeCard from "./recipe-card";
+import RecipeListItem from "./recipe-list-item";
 import BulkActionBar from "@/components/ui/bulk-action-bar";
 import BulkTagManagerModal from "@/components/ui/bulk-tag-manager-modal";
 import BulkCollectionManagerModal from "@/components/ui/bulk-collection-manager-modal";
@@ -35,6 +43,8 @@ interface RecipesClientProps {
   recipes: Recipe[];
 }
 
+type ViewMode = "single" | "double" | "list";
+
 export default function RecipesClient({ recipes }: RecipesClientProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedRecipes, setSelectedRecipes] = useState<Set<string>>(
@@ -43,10 +53,20 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
   const [showBulkTagManager, setShowBulkTagManager] = useState(false);
   const [showBulkCollectionManager, setShowBulkCollectionManager] =
     useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("single");
 
   const toggleSelectionMode = () => {
     setSelectionMode(!selectionMode);
     setSelectedRecipes(new Set());
+  };
+
+  const handleEnableMultiSelect = (recipeId: string) => {
+    // Enable selection mode if not already enabled
+    if (!selectionMode) {
+      setSelectionMode(true);
+    }
+    // Select the recipe
+    setSelectedRecipes(new Set([recipeId]));
   };
 
   const toggleSelectRecipe = (recipeId: string) => {
@@ -74,12 +94,57 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 sm:pb-0">
       <div className="container mx-auto py-6 px-4 sm:py-8">
-        {/* Header with selection mode toggle */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl sm:text-3xl font-bold">My Recipes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">My Recipes</h1>
+          <Link
+            href="/recipes/new"
+            className="hidden sm:block w-full sm:w-auto"
+          >
+            <Button className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              New Recipe
+            </Button>
+          </Link>
+        </div>
+
+        {/* Sticky action bar for mobile */}
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b mb-6 sm:hidden">
+          <div className="flex items-center justify-between py-3 gap-3">
+            {/* View mode selector */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant={viewMode === "single" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("single")}
+                className="p-2"
+                aria-label="Single card view"
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "double" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("double")}
+                className="p-2"
+                aria-label="Two column view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="p-2"
+                aria-label="List view"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Selection mode toggle */}
             <Button
               variant={selectionMode ? "default" : "outline"}
               size="sm"
@@ -89,22 +154,68 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
               {selectionMode ? (
                 <>
                   <CheckSquare className="h-4 w-4" />
-                  Exit Selection
+                  <span className="hidden sm:inline">Exit</span>
                 </>
               ) : (
                 <>
                   <Square className="h-4 w-4" />
-                  Select Multiple
+                  <span className="hidden sm:inline">Select</span>
                 </>
               )}
             </Button>
           </div>
-          <Link href="/recipes/new" className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              New Recipe
+        </div>
+
+        {/* Desktop view mode selector */}
+        <div className="hidden sm:flex items-center justify-between mb-6">
+          <div className="flex items-center gap-1">
+            <Button
+              variant={viewMode === "single" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("single")}
+              className="gap-2"
+            >
+              <Grid className="h-4 w-4" />
+              <span>Single</span>
             </Button>
-          </Link>
+            <Button
+              variant={viewMode === "double" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("double")}
+              className="gap-2"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span>2-Column</span>
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="gap-2"
+            >
+              <List className="h-4 w-4" />
+              <span>List</span>
+            </Button>
+          </div>
+
+          <Button
+            variant={selectionMode ? "default" : "outline"}
+            size="sm"
+            onClick={toggleSelectionMode}
+            className="gap-2"
+          >
+            {selectionMode ? (
+              <>
+                <CheckSquare className="h-4 w-4" />
+                Exit Selection
+              </>
+            ) : (
+              <>
+                <Square className="h-4 w-4" />
+                Select Multiple
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Recipes grid */}
@@ -117,8 +228,28 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
               </p>
             </div>
           </div>
+        ) : viewMode === "list" ? (
+          <div className="space-y-3 sm:space-y-4">
+            {recipes.map((recipe) => (
+              <RecipeListItem
+                key={recipe.id}
+                recipe={recipe}
+                showViewCount={true}
+                selectionMode={selectionMode}
+                isSelected={selectedRecipes.has(recipe.id)}
+                onToggleSelect={toggleSelectRecipe}
+                onEnableMultiSelect={handleEnableMultiSelect}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          <div
+            className={
+              viewMode === "single"
+                ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                : "grid grid-cols-2 gap-3 sm:gap-4"
+            }
+          >
             {recipes.map((recipe) => (
               <RecipeCard
                 key={recipe.id}
@@ -127,6 +258,7 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
                 selectionMode={selectionMode}
                 isSelected={selectedRecipes.has(recipe.id)}
                 onToggleSelect={toggleSelectRecipe}
+                onEnableMultiSelect={handleEnableMultiSelect}
               />
             ))}
           </div>

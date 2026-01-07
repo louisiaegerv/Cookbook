@@ -12,6 +12,7 @@ import { BookOpen, Plus, Hamburger, FolderOpen, Tag } from "lucide-react";
 import Link from "next/link";
 import LogoutButton from "./logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import MobileBottomNav from "@/components/mobile-bottom-nav";
 
 export default async function DashboardLayout({
   children,
@@ -77,7 +78,8 @@ export default async function DashboardLayout({
           </nav>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-16 md:pb-0">{children}</main>
+      <MobileBottomNav />
     </div>
   );
 }
