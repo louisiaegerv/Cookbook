@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import RecipesClient from "./recipes-client";
+import { Card } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import Link from "next/link";
 
 export default async function RecipesPage() {
   const supabase = await createClient();

@@ -107,13 +107,13 @@ export default async function PublicCollectionDetailPage({
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-muted-foreground mt-4">
             <div className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="text-sm sm:text-base sm:text-lg">
+              <span className="text-sm sm:text-lg">
                 {recipes.length} recipe{recipes.length !== 1 ? "s" : ""}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="text-sm sm:text-base sm:text-lg">
+              <span className="text-sm sm:text-lg">
                 Created{" "}
                 {new Date(typedCollection.created_at).toLocaleDateString()}
               </span>

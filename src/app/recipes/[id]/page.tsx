@@ -162,14 +162,14 @@ export default async function PublicRecipeDetailPage({
             {typedRecipe.cooking_time && (
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-sm sm:text-base sm:text-lg">
+                <span className="text-sm sm:text-lg">
                   {typedRecipe.cooking_time} minutes
                 </span>
               </div>
             )}
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="text-sm sm:text-base sm:text-lg">
+              <span className="text-sm sm:text-lg">
                 {typedRecipe.view_count || 0} view
                 {typedRecipe.view_count !== 1 ? "s" : ""}
               </span>
