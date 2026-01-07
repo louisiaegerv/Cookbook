@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   CheckSquare,
@@ -9,6 +9,9 @@ import {
   Grid,
   List,
   LayoutGrid,
+  LayoutTemplate,
+  Tag as TagIcon,
+  FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
 import RecipeCard from "./recipe-card";
@@ -54,6 +57,55 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
   const [showBulkCollectionManager, setShowBulkCollectionManager] =
     useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("single");
+  const [mounted, setMounted] = useState(false);
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem("recipes-view-mode") as ViewMode;
+    if (savedViewMode && ["single", "double", "list"].includes(savedViewMode)) {
+      setViewMode(savedViewMode);
+    }
+    setMounted(true);
+  }, []);
+
+  // Save view mode to localStorage when it changes
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem("recipes-view-mode", viewMode);
+    }
+  }, [viewMode, mounted]);
+
+  // Cycle through view modes
+  const cycleViewMode = () => {
+    const modes: ViewMode[] = ["single", "double", "list"];
+    const currentIndex = modes.indexOf(viewMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setViewMode(modes[nextIndex]);
+  };
+
+  // Get icon for current view mode
+  const getViewModeIcon = () => {
+    switch (viewMode) {
+      case "single":
+        return <Grid className="h-4 w-4" />;
+      case "double":
+        return <LayoutGrid className="h-4 w-4" />;
+      case "list":
+        return <List className="h-4 w-4" />;
+    }
+  };
+
+  // Get label for current view mode
+  const getViewModeLabel = () => {
+    switch (viewMode) {
+      case "single":
+        return "Single";
+      case "double":
+        return "2-Column";
+      case "list":
+        return "List";
+    }
+  };
 
   const toggleSelectionMode = () => {
     setSelectionMode(!selectionMode);
@@ -113,91 +165,79 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
         {/* Sticky action bar for mobile */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b mb-6 sm:hidden">
           <div className="flex items-center justify-between py-3 gap-3">
-            {/* View mode selector */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant={viewMode === "single" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("single")}
-                className="p-2"
-                aria-label="Single card view"
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "double" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("double")}
-                className="p-2"
-                aria-label="Two column view"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-                className="p-2"
-                aria-label="List view"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
+            {!selectionMode ? (
+              <>
+                {/* View mode toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cycleViewMode}
+                  className="gap-2"
+                  aria-label={`Current view: ${getViewModeLabel()}, click to cycle through views`}
+                >
+                  {getViewModeIcon()}
+                  <span className="hidden sm:inline">{getViewModeLabel()}</span>
+                </Button>
 
-            {/* Selection mode toggle */}
-            <Button
-              variant={selectionMode ? "default" : "outline"}
-              size="sm"
-              onClick={toggleSelectionMode}
-              className="gap-2"
-            >
-              {selectionMode ? (
-                <>
-                  <CheckSquare className="h-4 w-4" />
-                  <span className="hidden sm:inline">Exit</span>
-                </>
-              ) : (
-                <>
+                {/* Selection mode toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectionMode}
+                  className="gap-2"
+                >
                   <Square className="h-4 w-4" />
                   <span className="hidden sm:inline">Select</span>
-                </>
-              )}
-            </Button>
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Selection mode controls */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkTagManager(true)}
+                    className="gap-2"
+                    disabled={selectedRecipes.size === 0}
+                  >
+                    <TagIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tags</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkCollectionManager(true)}
+                    className="gap-2"
+                    disabled={selectedRecipes.size === 0}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    <span className="hidden sm:inline">Collections</span>
+                  </Button>
+                  {selectedRecipes.size > 0 && (
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {selectedRecipes.size} selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Exit selection mode */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={toggleSelectionMode}
+                  className="gap-2"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  <span className="hidden sm:inline">Exit</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Desktop view mode selector */}
-        <div className="hidden sm:flex items-center justify-between mb-6">
-          <div className="flex items-center gap-1">
-            <Button
-              variant={viewMode === "single" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("single")}
-              className="gap-2"
-            >
-              <Grid className="h-4 w-4" />
-              <span>Single</span>
-            </Button>
-            <Button
-              variant={viewMode === "double" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("double")}
-              className="gap-2"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span>2-Column</span>
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="gap-2"
-            >
-              <List className="h-4 w-4" />
-              <span>List</span>
-            </Button>
-          </div>
-
+        {/* Desktop selection mode toggle only */}
+        <div className="hidden sm:flex items-center justify-end mb-6">
           <Button
             variant={selectionMode ? "default" : "outline"}
             size="sm"
@@ -265,13 +305,15 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
         )}
       </div>
 
-      {/* Bulk action bar */}
-      <BulkActionBar
-        selectedCount={selectedRecipes.size}
-        onClearSelection={clearSelection}
-        onManageTags={() => setShowBulkTagManager(true)}
-        onManageCollections={() => setShowBulkCollectionManager(true)}
-      />
+      {/* Bulk action bar - desktop only */}
+      <div className="hidden sm:block">
+        <BulkActionBar
+          selectedCount={selectedRecipes.size}
+          onClearSelection={clearSelection}
+          onManageTags={() => setShowBulkTagManager(true)}
+          onManageCollections={() => setShowBulkCollectionManager(true)}
+        />
+      </div>
 
       {/* Bulk tag manager modal */}
       <BulkTagManagerModal
