@@ -6,18 +6,24 @@ import { X, Tag as TagIcon, FolderOpen } from "lucide-react";
 
 interface BulkActionBarProps {
   selectedCount: number;
+  filteredCount: number;
   onClearSelection: () => void;
   onManageTags: () => void;
   onManageCollections: () => void;
+  onSelectAll: () => void;
 }
 
 export default function BulkActionBar({
   selectedCount,
+  filteredCount,
   onClearSelection,
   onManageTags,
   onManageCollections,
+  onSelectAll,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
+
+  const allSelected = selectedCount === filteredCount && filteredCount > 0;
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
@@ -27,6 +33,18 @@ export default function BulkActionBar({
             {selectedCount} selected
           </Badge>
         </div>
+
+        <div className="h-6 w-px bg-border" />
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={allSelected ? onClearSelection : onSelectAll}
+          disabled={filteredCount === 0}
+          className="gap-2"
+        >
+          {allSelected ? "Deselect All" : "Select All"}
+        </Button>
 
         <div className="h-6 w-px bg-border" />
 

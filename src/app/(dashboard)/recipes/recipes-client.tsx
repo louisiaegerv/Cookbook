@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   CheckSquare,
   Square,
@@ -12,6 +13,9 @@ import {
   LayoutTemplate,
   Tag as TagIcon,
   FolderOpen,
+  Filter,
+  X,
+  Plus as PlusIcon,
 } from "lucide-react";
 import Link from "next/link";
 import RecipeCard from "./recipe-card";
@@ -19,6 +23,7 @@ import RecipeListItem from "./recipe-list-item";
 import BulkActionBar from "@/components/ui/bulk-action-bar";
 import BulkTagManagerModal from "@/components/ui/bulk-tag-manager-modal";
 import BulkCollectionManagerModal from "@/components/ui/bulk-collection-manager-modal";
+import FilterDialog from "@/components/ui/filter-dialog";
 
 interface Recipe {
   id: string;
@@ -56,8 +61,31 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
   const [showBulkTagManager, setShowBulkTagManager] = useState(false);
   const [showBulkCollectionManager, setShowBulkCollectionManager] =
     useState(false);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>(recipes);
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [mounted, setMounted] = useState(false);
+
+  // Filter state
+  const [searchTerms, setSearchTerms] = useState<string[]>([]);
+  const [currentSearchInput, setCurrentSearchInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+
+  // Extract all unique tags from recipes
+  const allTags = useMemo(() => {
+    const tagsMap = new Map<
+      string,
+      { id: string; name: string; color: string }
+    >();
+    recipes.forEach((recipe) => {
+      recipe.recipe_tags?.forEach((rt) => {
+        if (!tagsMap.has(rt.tags.id)) {
+          tagsMap.set(rt.tags.id, rt.tags);
+        }
+      });
+    });
+    return Array.from(tagsMap.values());
+  }, [recipes]);
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -74,6 +102,11 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
       localStorage.setItem("recipes-view-mode", viewMode);
     }
   }, [viewMode, mounted]);
+
+  // Update filtered recipes when original recipes change
+  useEffect(() => {
+    setFilteredRecipes(recipes);
+  }, [recipes]);
 
   // Cycle through view modes
   const cycleViewMode = () => {
@@ -135,6 +168,16 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
     setSelectedRecipes(new Set());
   };
 
+  const selectAllFiltered = () => {
+    const allFilteredIds = new Set(filteredRecipes.map((r) => r.id));
+    setSelectedRecipes(allFilteredIds);
+  };
+
+  // Check if all filtered recipes are selected
+  const allSelected =
+    selectedRecipes.size === filteredRecipes.length &&
+    filteredRecipes.length > 0;
+
   const handleTagsUpdated = () => {
     // Refresh the page to show updated tags
     window.location.reload();
@@ -145,11 +188,76 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
     window.location.reload();
   };
 
+  // Apply filters based on current state
+  const applyFilters = () => {
+    const filtered = recipes.filter((recipe) => {
+      // Text search: match ALL search terms in title OR ingredients
+      let matchesText = true;
+      if (searchTerms.length > 0) {
+        matchesText = searchTerms.every((searchTerm) => {
+          const searchLower = searchTerm.toLowerCase();
+          const titleMatch = recipe.title.toLowerCase().includes(searchLower);
+          const ingredientsMatch = recipe.ingredients.some((ing: any) =>
+            typeof ing === "string"
+              ? ing.toLowerCase().includes(searchLower)
+              : ing.name?.toLowerCase().includes(searchLower)
+          );
+          return titleMatch || ingredientsMatch;
+        });
+      }
+
+      // Tag filter: recipe must have ALL selected tags
+      let matchesTags = true;
+      if (selectedTags.size > 0) {
+        const recipeTagIds = new Set(
+          recipe.recipe_tags?.map((rt) => rt.tags.id) || []
+        );
+        matchesTags = Array.from(selectedTags).every((tagId) =>
+          recipeTagIds.has(tagId)
+        );
+      }
+
+      return matchesText && matchesTags;
+    });
+
+    setFilteredRecipes(filtered);
+  };
+
+  // Apply filters whenever filter state changes
+  useEffect(() => {
+    applyFilters();
+  }, [searchTerms, selectedTags, recipes]);
+
+  const resetFilters = () => {
+    setSearchTerms([]);
+    setCurrentSearchInput("");
+    setSelectedTags(new Set());
+  };
+
+  const addSearchTerm = (term: string) => {
+    if (term.trim() && !searchTerms.includes(term.trim())) {
+      setSearchTerms([...searchTerms, term.trim()]);
+    }
+    setCurrentSearchInput("");
+  };
+
+  const removeSearchTerm = (term: string) => {
+    setSearchTerms(searchTerms.filter((t) => t !== term));
+  };
+
+  const removeTagFilter = (tagId: string) => {
+    const newSelected = new Set(selectedTags);
+    newSelected.delete(tagId);
+    setSelectedTags(newSelected);
+  };
+
+  const hasActiveFilters = searchTerms.length > 0 || selectedTags.size > 0;
+
   return (
     <div className="min-h-screen pb-20 sm:pb-0">
-      <div className="container mx-auto py-6 px-4 sm:py-8">
+      <div className="container mx-auto md:py-6 px-4 sm:py-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <div className="hidden md:flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold">My Recipes</h1>
           <Link
             href="/recipes/new"
@@ -179,6 +287,17 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
                   <span className="hidden sm:inline">{getViewModeLabel()}</span>
                 </Button>
 
+                {/* Filter button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilterDialog(true)}
+                  className="gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden sm:inline">Filter</span>
+                </Button>
+
                 {/* Selection mode toggle */}
                 <Button
                   variant="outline"
@@ -193,7 +312,18 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
             ) : (
               <>
                 {/* Selection mode controls */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+                  {/* Select All / Deselect All button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={allSelected ? clearSelection : selectAllFiltered}
+                    disabled={filteredRecipes.length === 0}
+                    className="gap-2 whitespace-nowrap"
+                  >
+                    {allSelected ? "Deselect All" : "Select All"}
+                  </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -215,7 +345,7 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
                     <span className="hidden sm:inline">Collections</span>
                   </Button>
                   {selectedRecipes.size > 0 && (
-                    <span className="text-sm font-medium text-muted-foreground">
+                    <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                       {selectedRecipes.size} selected
                     </span>
                   )}
@@ -237,7 +367,29 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
         </div>
 
         {/* Desktop selection mode toggle only */}
-        <div className="hidden sm:flex items-center justify-end mb-6">
+        <div className="hidden sm:flex items-center justify-end gap-2 mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilterDialog(true)}
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filter
+          </Button>
+
+          {selectionMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={allSelected ? clearSelection : selectAllFiltered}
+              disabled={filteredRecipes.length === 0}
+              className="gap-2"
+            >
+              {allSelected ? "Deselect All" : "Select All"}
+            </Button>
+          )}
+
           <Button
             variant={selectionMode ? "default" : "outline"}
             size="sm"
@@ -258,8 +410,76 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
           </Button>
         </div>
 
+        {/* Active filters display */}
+        {hasActiveFilters && (
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Active Filters:
+                </span>
+
+                {/* Search filter badges */}
+                {searchTerms.map((term) => (
+                  <Badge
+                    key={term}
+                    variant="secondary"
+                    className="gap-1 pr-1 pl-2 py-1"
+                  >
+                    Search: "{term}"
+                    <button
+                      onClick={() => removeSearchTerm(term)}
+                      className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                      aria-label={`Remove "${term}" filter`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+
+                {/* Tag filter badges */}
+                {Array.from(selectedTags).map((tagId) => {
+                  const tag = allTags.find((t) => t.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="gap-1 pr-1 pl-2 py-1"
+                      style={{
+                        backgroundColor: `${tag.color}20`,
+                        borderColor: tag.color,
+                        color: tag.color,
+                      }}
+                    >
+                      {tag.name}
+                      <button
+                        onClick={() => removeTagFilter(tag.id)}
+                        className="ml-1 hover:bg-current/20 rounded-full p-0.5 transition-colors"
+                        aria-label={`Remove ${tag.name} filter`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+
+              {/* Clear all filters button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Clear all filters
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Recipes grid */}
-        {!recipes || recipes.length === 0 ? (
+        {!filteredRecipes || filteredRecipes.length === 0 ? (
           <div className="text-center py-8 sm:py-12 px-4 sm:px-6 border rounded-lg">
             <div className="space-y-4">
               <h2 className="text-xl sm:text-2xl font-bold">No recipes yet</h2>
@@ -270,7 +490,7 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
           </div>
         ) : viewMode === "list" ? (
           <div className="space-y-3 sm:space-y-4">
-            {recipes.map((recipe) => (
+            {filteredRecipes.map((recipe) => (
               <RecipeListItem
                 key={recipe.id}
                 recipe={recipe}
@@ -290,7 +510,7 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
                 : "grid grid-cols-2 gap-3 sm:gap-4"
             }
           >
-            {recipes.map((recipe) => (
+            {filteredRecipes.map((recipe) => (
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
@@ -309,9 +529,11 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
       <div className="hidden sm:block">
         <BulkActionBar
           selectedCount={selectedRecipes.size}
+          filteredCount={filteredRecipes.length}
           onClearSelection={clearSelection}
           onManageTags={() => setShowBulkTagManager(true)}
           onManageCollections={() => setShowBulkCollectionManager(true)}
+          onSelectAll={selectAllFiltered}
         />
       </div>
 
@@ -329,6 +551,21 @@ export default function RecipesClient({ recipes }: RecipesClientProps) {
         onOpenChange={setShowBulkCollectionManager}
         recipeIds={Array.from(selectedRecipes)}
         onCollectionsUpdated={handleCollectionsUpdated}
+      />
+
+      {/* Filter dialog */}
+      <FilterDialog
+        open={showFilterDialog}
+        onOpenChange={setShowFilterDialog}
+        recipes={recipes}
+        searchTerms={searchTerms}
+        currentSearchInput={currentSearchInput}
+        selectedTags={selectedTags}
+        allTags={allTags}
+        onSearchTermsChange={setSearchTerms}
+        onCurrentSearchInputChange={setCurrentSearchInput}
+        onSelectedTagsChange={setSelectedTags}
+        onAddSearchTerm={addSearchTerm}
       />
     </div>
   );

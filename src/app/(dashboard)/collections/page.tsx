@@ -41,7 +41,7 @@ export default async function CollectionsPage() {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto py-6 px-4 sm:py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <div className="hidden md:flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold">My Collections</h1>
           <Link
             href="/collections/new"
