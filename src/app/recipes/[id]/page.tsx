@@ -11,15 +11,23 @@ import { ArrowLeft, Clock, Trash2, Edit, Eye } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteRecipeButton from "@/components/ui/delete-recipe-button";
-import { RecipeWithRelations, Tag, RecipeImage } from "@/lib/types/recipe";
+import {
+  RecipeWithRelations,
+  Tag,
+  RecipeImage,
+  Collection,
+} from "@/lib/types/recipe";
 import RecipeTags from "@/components/ui/recipe-tags";
+import RecipeCollections from "@/components/ui/recipe-collections";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export default async function PublicRecipeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ collectionId?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -28,8 +36,9 @@ export default async function PublicRecipeDetailPage({
 
   // Await params to get the id
   const { id } = await params;
+  const { collectionId } = await searchParams;
 
-  // Fetch recipe with images and tags (without filtering by user_id for public access)
+  // Fetch recipe with images, tags, and collections (without filtering by user_id for public access)
   const { data: recipe, error } = await supabase
     .from("recipes")
     .select(
@@ -49,6 +58,16 @@ export default async function PublicRecipeDetailPage({
           user_id,
           created_at
         )
+      ),
+      recipe_collections (
+        collections (
+          id,
+          user_id,
+          name,
+          description,
+          created_at,
+          updated_at
+        )
       )
     `
     )
@@ -60,33 +79,36 @@ export default async function PublicRecipeDetailPage({
   }
 
   // Increment view count using RPC function (works for both authenticated and unauthenticated users)
-  supabase.rpc("increment_recipe_view_count", { recipe_id: id });
+  await supabase.rpc("increment_recipe_view_count", { recipe_id: id });
 
   const typedRecipe = recipe as RecipeWithRelations & {
     recipe_tags?: { tags: Tag }[];
     recipe_images?: RecipeImage[];
+    recipe_collections?: { collections: Collection }[];
   };
   typedRecipe.images = typedRecipe.recipe_images;
   const tags = typedRecipe.recipe_tags?.map((rt) => rt.tags) || [];
+  const collections =
+    typedRecipe.recipe_collections?.map((rc) => rc.collections) || [];
 
   // Check if current user is the owner
   const isOwner = user && user.id === typedRecipe.user_id;
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto py-8 px-4 max-w-4xl">
+      <div className="container mx-auto py-6 px-4 max-w-4xl sm:py-8">
         {/* Back button */}
-        <Link href="/recipes">
-          <Button variant="ghost" className="mb-6">
+        <Link href={collectionId ? `/collections/${collectionId}` : "/recipes"}>
+          <Button variant="ghost" className="mb-4 sm:mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Recipes
+            Back to {collectionId ? "Collection" : "Recipes"}
           </Button>
         </Link>
 
         {/* Images */}
         {typedRecipe.images && typedRecipe.images.length > 0 && (
-          <div className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="mb-6 sm:mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {typedRecipe.images
                 .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
                 .map((image) => (
@@ -107,9 +129,11 @@ export default async function PublicRecipeDetailPage({
 
         {/* Recipe header */}
         <div className="mb-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex-1">
-              <h1 className="text-4xl font-bold mb-2">{typedRecipe.title}</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+                {typedRecipe.title}
+              </h1>
               {typedRecipe.description && (
                 <div className="text-muted-foreground text-lg prose prose-slate max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -134,18 +158,18 @@ export default async function PublicRecipeDetailPage({
             )}
           </div>
 
-          <div className="flex items-center gap-6 text-muted-foreground mt-4">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-muted-foreground mt-4">
             {typedRecipe.cooking_time && (
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                <span className="text-lg">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="text-sm sm:text-base sm:text-lg">
                   {typedRecipe.cooking_time} minutes
                 </span>
               </div>
             )}
             <div className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              <span className="text-lg">
+              <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-sm sm:text-base sm:text-lg">
                 {typedRecipe.view_count || 0} view
                 {typedRecipe.view_count !== 1 ? "s" : ""}
               </span>
@@ -156,8 +180,14 @@ export default async function PublicRecipeDetailPage({
         {/* Tags */}
         <RecipeTags recipeId={typedRecipe.id} tags={tags} />
 
+        {/* Collections */}
+        <RecipeCollections
+          recipeId={typedRecipe.id}
+          collections={collections}
+        />
+
         {/* Ingredients */}
-        <Card className="mb-8">
+        <Card className="mb-6 sm:mb-8">
           <CardHeader>
             <CardTitle>Ingredients</CardTitle>
             <CardDescription>
@@ -166,13 +196,15 @@ export default async function PublicRecipeDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
+            <ul className="space-y-2 sm:space-y-3">
               {typedRecipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <span className="text-primary font-semibold min-w-[24px]">
+                <li key={index} className="flex items-start gap-2 sm:gap-3">
+                  <span className="text-primary font-semibold min-w-[20px] sm:min-w-[24px] text-sm sm:text-base">
                     {index + 1}.
                   </span>
-                  <span className="flex-1">{ingredient}</span>
+                  <span className="flex-1 text-sm sm:text-base">
+                    {ingredient}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -185,7 +217,7 @@ export default async function PublicRecipeDetailPage({
             <CardTitle>Instructions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-slate max-w-none">
+            <div className="prose prose-slate max-w-none prose-sm sm:prose-base">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {typedRecipe.instructions}
               </ReactMarkdown>

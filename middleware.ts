@@ -46,7 +46,8 @@ export async function middleware(req: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
-    pathname.startsWith("/recipes/");
+    pathname.startsWith("/recipes/") ||
+    pathname.startsWith("/collections/");
 
   if (isPublicRoute) {
     return res;

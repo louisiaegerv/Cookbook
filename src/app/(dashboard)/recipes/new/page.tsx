@@ -37,9 +37,9 @@ export default async function NewRecipePage() {
   return (
     <div className="min-h-screen">
       <header className="border-b bg-background">
-        <div className="container mx-auto px-4 py-4 flex items-center">
+        <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center">
           <Link href="/recipes">
-            <button className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted transition-colors">
+            <button className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm sm:text-base">
               <ArrowLeft className="h-4 w-4" />
               Back to Recipes
             </button>
@@ -47,7 +47,7 @@ export default async function NewRecipePage() {
         </div>
       </header>
 
-      <main className="container mx-auto py-8 px-4">
+      <main className="container mx-auto py-6 px-4 sm:py-8">
         <Card>
           <CardHeader>
             <CardTitle>Create New Recipe</CardTitle>

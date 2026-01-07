@@ -11,6 +11,7 @@ import {
 import { BookOpen, Plus, Hamburger, FolderOpen, Tag } from "lucide-react";
 import Link from "next/link";
 import LogoutButton from "./logout-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardLayout({
   children,
@@ -50,33 +51,28 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b bg-background">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
           <Link
             href="/recipes"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <BookOpen className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">Cookbook</h1>
+            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <h1 className="text-lg sm:text-xl font-bold">Cookbook</h1>
           </Link>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-2 sm:gap-4">
             <Link href="/recipes">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="hidden sm:flex">
                 <Hamburger className="h-4 w-4 mr-2" />
                 Recipes
               </Button>
             </Link>
             <Link href="/collections">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="hidden sm:flex">
                 <FolderOpen className="h-4 w-4 mr-2" />
                 Collections
               </Button>
             </Link>
-            <Link href="/recipes/new">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                New Recipe
-              </Button>
-            </Link>
+            <ThemeToggle />
             <LogoutButton />
           </nav>
         </div>

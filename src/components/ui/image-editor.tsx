@@ -249,32 +249,32 @@ export default function ImageEditor({
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => removeExistingImage(image.id)}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                       {existingImages.length > 1 && (
-                        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             type="button"
                             variant="secondary"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 sm:h-8 sm:w-8"
                             disabled={index === 0}
                             onClick={() => moveImage(index, index - 1)}
                           >
-                            <GripVertical className="h-4 w-4" />
+                            <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                           <Button
                             type="button"
                             variant="secondary"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 sm:h-8 sm:w-8"
                             disabled={index === existingImages.length - 1}
                             onClick={() => moveImage(index, index + 1)}
                           >
-                            <GripVertical className="h-4 w-4" />
+                            <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                         </div>
                       )}
@@ -290,7 +290,7 @@ export default function ImageEditor({
       {newImages.length > 0 && (
         <div className="space-y-2">
           <Label>New Images</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {newImages.map((image, index) => (
               <div
                 key={`${image.name}-${index}`}
@@ -306,13 +306,13 @@ export default function ImageEditor({
                     type="button"
                     variant="destructive"
                     size="icon"
-                    className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => removeNewImage(index)}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 truncate">
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] sm:text-xs p-1.5 sm:p-2 truncate">
                   {image.name}
                 </div>
               </div>
@@ -323,8 +323,8 @@ export default function ImageEditor({
 
       {/* Status indicator */}
       {totalImages > 0 && !uploading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <ImageIcon className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+          <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span>
             {totalImages} of {maxImages} images ({existingImages.length}{" "}
             existing, {newImages.length} new)

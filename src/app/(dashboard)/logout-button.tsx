@@ -16,9 +16,14 @@ export default function LogoutButton() {
   };
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleLogout}>
-      <LogOut className="h-4 w-4 mr-2" />
-      Logout
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleLogout}
+      className="px-2 sm:px-3"
+    >
+      <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
+      <span className="hidden sm:inline">Logout</span>
     </Button>
   );
 }

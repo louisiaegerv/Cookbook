@@ -49,15 +49,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-xl sm:text-2xl">Welcome back</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             Sign in to your account to manage your recipes
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              <div className="bg-destructive/10 text-destructive text-xs sm:text-sm p-3 rounded-md">
                 {error}
               </div>
             )}
@@ -99,7 +99,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link href="/signup" className="text-primary hover:underline">
               Sign up

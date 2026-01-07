@@ -12,26 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Tag as TagIcon, Loader2 } from "lucide-react";
+import { X, Plus, Tag as TagIcon, Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Tag } from "@/lib/types/recipe";
 
-interface TagManagerModalProps {
+interface BulkTagManagerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  recipeId: string;
-  currentTags: Tag[];
-  onTagsUpdated: (tags: Tag[]) => void;
+  recipeIds: string[];
+  onTagsUpdated?: () => void;
 }
 
-export default function TagManagerModal({
+export default function BulkTagManagerModal({
   open,
   onOpenChange,
-  recipeId,
-  currentTags,
+  recipeIds,
   onTagsUpdated,
-}: TagManagerModalProps) {
-  const [tags, setTags] = useState<Tag[]>(currentTags);
+}: BulkTagManagerModalProps) {
+  const [tags, setTags] = useState<Set<string>>(new Set());
   const [newTagName, setNewTagName] = useState("");
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +40,14 @@ export default function TagManagerModal({
   useEffect(() => {
     if (open) {
       fetchAllTags();
+    }
+  }, [open]);
+
+  // Reset tags when modal closes
+  useEffect(() => {
+    if (!open) {
+      setTags(new Set());
+      setNewTagName("");
     }
   }, [open]);
 
@@ -105,70 +111,57 @@ export default function TagManagerModal({
       }
     }
 
-    // Check if recipe already has this tag
-    if (tags.some((t) => t.id === tagToAdd.id)) {
-      setNewTagName("");
-      return;
-    }
-
-    setTags([...tags, tagToAdd]);
+    // Add to selected tags
+    const newTags = new Set(tags);
+    newTags.add(tagToAdd.id);
+    setTags(newTags);
     setNewTagName("");
   };
 
-  const handleRemoveTag = (tagId: string) => {
-    setTags(tags.filter((t) => t.id !== tagId));
+  const handleToggleTag = (tagId: string) => {
+    const newTags = new Set(tags);
+    if (newTags.has(tagId)) {
+      newTags.delete(tagId);
+    } else {
+      newTags.add(tagId);
+    }
+    setTags(newTags);
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setIsSaving(false);
+    if (tags.size === 0) {
+      onOpenChange(false);
       return;
     }
 
+    setIsSaving(true);
+
     try {
-      // Get current recipe tags
-      const { data: existingRecipeTags } = await supabase
+      // Add selected tags to all selected recipes
+      const recipeTagsToInsert = [];
+      for (const recipeId of recipeIds) {
+        for (const tagId of tags) {
+          recipeTagsToInsert.push({
+            recipe_id: recipeId,
+            tag_id: tagId,
+          });
+        }
+      }
+
+      // Insert all recipe-tag relationships
+      const { error } = await supabase
         .from("recipe_tags")
-        .select("tag_id")
-        .eq("recipe_id", recipeId);
+        .insert(recipeTagsToInsert)
+        .select();
 
-      const existingTagIds = existingRecipeTags?.map((rt) => rt.tag_id) || [];
-      const newTagIds = tags.map((t) => t.id);
-
-      // Tags to add
-      const tagsToAdd = newTagIds.filter((id) => !existingTagIds.includes(id));
-
-      // Tags to remove
-      const tagsToRemove = existingTagIds.filter(
-        (id) => !newTagIds.includes(id)
-      );
-
-      // Remove old tags
-      if (tagsToRemove.length > 0) {
-        await supabase
-          .from("recipe_tags")
-          .delete()
-          .eq("recipe_id", recipeId)
-          .in("tag_id", tagsToRemove);
+      if (error) {
+        // Check if it's a duplicate key error (which is fine)
+        if (!error.message.includes("duplicate")) {
+          throw error;
+        }
       }
 
-      // Add new tags
-      if (tagsToAdd.length > 0) {
-        const recipeTagsToInsert = tagsToAdd.map((tagId) => ({
-          recipe_id: recipeId,
-          tag_id: tagId,
-        }));
-
-        await supabase.from("recipe_tags").insert(recipeTagsToInsert);
-      }
-
-      onTagsUpdated(tags);
+      onTagsUpdated?.();
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving tags:", error);
@@ -190,17 +183,18 @@ export default function TagManagerModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <TagIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            Manage Tags
+            Add Tags to {recipeIds.length} Recipe
+            {recipeIds.length > 1 ? "s" : ""}
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
-            Add or remove tags to organize your recipes
+            Select tags to add to the selected recipes
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Add new tag */}
           <div className="space-y-2">
-            <Label htmlFor="new-tag">Add Tag</Label>
+            <Label htmlFor="new-tag">Create New Tag</Label>
             <div className="flex gap-2">
               <Input
                 id="new-tag"
@@ -227,8 +221,7 @@ export default function TagManagerModal({
                     (tag) =>
                       tag.name
                         .toLowerCase()
-                        .includes(newTagName.toLowerCase()) &&
-                      !tags.some((t) => t.id === tag.id)
+                        .includes(newTagName.toLowerCase()) && !tags.has(tag.id)
                   )
                   .slice(0, 5)
                   .map((tag) => (
@@ -237,7 +230,9 @@ export default function TagManagerModal({
                       variant="outline"
                       className="cursor-pointer hover:bg-accent"
                       onClick={() => {
-                        setTags([...tags, tag]);
+                        const newTags = new Set(tags);
+                        newTags.add(tag.id);
+                        setTags(newTags);
                         setNewTagName("");
                       }}
                     >
@@ -249,44 +244,91 @@ export default function TagManagerModal({
             )}
           </div>
 
-          {/* Current tags */}
+          {/* All tags */}
           <div className="space-y-2">
-            <Label>Current Tags</Label>
-            {tags.length === 0 ? (
+            <Label>Select Tags</Label>
+            {allTags.length === 0 ? (
               <p className="text-xs sm:text-sm text-muted-foreground">
-                No tags added yet. Add tags above to get started.
+                No tags yet. Create one above to get started.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="gap-1 pr-2"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      borderColor: tag.color,
-                    }}
-                  >
-                    <span className="flex items-center gap-1">
-                      <TagIcon
-                        className="h-3 w-3"
-                        style={{ color: tag.color }}
-                      />
-                      {tag.name}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveTag(tag.id)}
-                      disabled={isSaving}
-                      className="ml-1 hover:bg-accent rounded-full p-0.5 transition-colors"
+                {allTags.map((tag) => {
+                  const isSelected = tags.has(tag.id);
+                  return (
+                    <Badge
+                      key={tag.id}
+                      variant={isSelected ? "default" : "outline"}
+                      className={`gap-1 pr-2 cursor-pointer transition-all ${
+                        isSelected ? "ring-2 ring-primary" : ""
+                      }`}
+                      style={
+                        isSelected
+                          ? {
+                              backgroundColor: tag.color,
+                              color: "white",
+                            }
+                          : {
+                              backgroundColor: `${tag.color}20`,
+                              borderColor: tag.color,
+                            }
+                      }
+                      onClick={() => handleToggleTag(tag.id)}
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+                      <span className="flex items-center gap-1">
+                        <TagIcon
+                          className="h-3 w-3"
+                          style={{ color: isSelected ? "white" : tag.color }}
+                        />
+                        {tag.name}
+                      </span>
+                      {isSelected && <Check className="h-3 w-3" />}
+                    </Badge>
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {/* Selected tags summary */}
+          {tags.size > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-sm font-medium mb-2">
+                {tags.size} tag{tags.size > 1 ? "s" : ""} selected
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(tags).map((tagId) => {
+                  const tag = allTags.find((t) => t.id === tagId);
+                  return tag ? (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="gap-1 pr-2"
+                      style={{
+                        backgroundColor: `${tag.color}20`,
+                        borderColor: tag.color,
+                      }}
+                    >
+                      <span className="flex items-center gap-1">
+                        <TagIcon
+                          className="h-3 w-3"
+                          style={{ color: tag.color }}
+                        />
+                        {tag.name}
+                      </span>
+                      <button
+                        onClick={() => handleToggleTag(tag.id)}
+                        disabled={isSaving}
+                        className="ml-1 hover:bg-accent rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-end gap-2">
@@ -300,16 +342,18 @@ export default function TagManagerModal({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || tags.size === 0}
             className="w-full sm:w-auto"
           >
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
+                Adding Tags...
               </>
             ) : (
-              "Save Changes"
+              `Add Tags to ${recipeIds.length} Recipe${
+                recipeIds.length > 1 ? "s" : ""
+              }`
             )}
           </Button>
         </div>

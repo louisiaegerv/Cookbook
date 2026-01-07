@@ -172,13 +172,13 @@ export default function ImageUploader({
                   type="button"
                   variant="destructive"
                   size="icon"
-                  className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => removeImage(index)}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               )}
-              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 truncate">
+              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] sm:text-xs p-1.5 sm:p-2 truncate">
                 {image.name}
               </div>
             </div>
@@ -187,8 +187,8 @@ export default function ImageUploader({
       )}
 
       {images.length > 0 && !uploading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <ImageIcon className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+          <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span>
             {images.length} of {maxImages} images selected
           </span>

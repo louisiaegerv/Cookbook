@@ -159,9 +159,9 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
       {error && (
-        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+        <div className="bg-destructive/10 text-destructive text-xs sm:text-sm p-3 rounded-md">
           {error}
         </div>
       )}
@@ -249,16 +249,17 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-4">
+      <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
         <Button
           type="button"
           variant="outline"
           onClick={() => router.back()}
           disabled={loading}
+          className="w-full sm:w-auto"
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading} className="w-full sm:w-auto">
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
