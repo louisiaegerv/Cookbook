@@ -103,8 +103,16 @@ export default function ImageEditor({
       // Don't return here - we've already deleted from DB, so continue
     }
 
-    // Remove from state
-    onExistingImagesChange(existingImages.filter((img) => img.id !== imageId));
+    // Remove from state and re-normalize display_order values
+    const remainingImages = existingImages
+      .filter((img) => img.id !== imageId)
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+      .map((img, index) => ({
+        ...img,
+        display_order: index,
+      }));
+
+    onExistingImagesChange(remainingImages);
   };
 
   const removeNewImage = (index: number) => {
@@ -115,7 +123,12 @@ export default function ImageEditor({
   const moveImage = (fromIndex: number, toIndex: number) => {
     if (disabled) return;
 
-    const updatedImages = [...existingImages];
+    // Sort images by display_order first to ensure correct indices
+    const sortedImages = [...existingImages].sort(
+      (a, b) => (a.display_order || 0) - (b.display_order || 0)
+    );
+
+    const updatedImages = [...sortedImages];
     const [movedImage] = updatedImages.splice(fromIndex, 1);
     updatedImages.splice(toIndex, 0, movedImage);
 
@@ -231,57 +244,55 @@ export default function ImageEditor({
         <div className="space-y-2">
           <Label>Existing Images</Label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {existingImages
-              .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-              .map((image, index) => (
-                <div
-                  key={image.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border"
-                >
-                  <img
-                    src={image.image_url}
-                    alt={`Recipe image ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  {!disabled && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeExistingImage(image.id)}
-                      >
-                        <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      </Button>
-                      {existingImages.length > 1 && (
-                        <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="h-7 w-7 sm:h-8 sm:w-8"
-                            disabled={index === 0}
-                            onClick={() => moveImage(index, index - 1)}
-                          >
-                            <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="h-7 w-7 sm:h-8 sm:w-8"
-                            disabled={index === existingImages.length - 1}
-                            onClick={() => moveImage(index, index + 1)}
-                          >
-                            <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
+            {existingImages.map((image, index) => (
+              <div
+                key={image.id}
+                className="relative group aspect-square rounded-lg overflow-hidden border"
+              >
+                <img
+                  src={image.image_url}
+                  alt={`Recipe image ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                {!disabled && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeExistingImage(image.id)}
+                    >
+                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </Button>
+                    {existingImages.length > 1 && (
+                      <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
+                          disabled={index === 0}
+                          onClick={() => moveImage(index, index - 1)}
+                        >
+                          <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
+                          disabled={index === existingImages.length - 1}
+                          onClick={() => moveImage(index, index + 1)}
+                        >
+                          <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

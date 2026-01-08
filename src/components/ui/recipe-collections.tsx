@@ -26,7 +26,7 @@ export default function RecipeCollections({
 
   if (currentCollections.length === 0) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 my-3">
         <button
           onClick={() => setShowCollectionManager(true)}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"

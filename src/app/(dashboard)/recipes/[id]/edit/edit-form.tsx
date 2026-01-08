@@ -29,6 +29,22 @@ interface RecipeWithImages {
   }>;
 }
 
+interface ExistingImage {
+  id: string;
+  recipe_id: string;
+  image_url: string;
+  storage_path: string;
+  display_order: number | null;
+}
+
+interface NormalizedImage {
+  id: string;
+  recipe_id: string;
+  image_url: string;
+  storage_path: string;
+  display_order: number;
+}
+
 interface EditRecipeFormProps {
   recipe: RecipeWithImages;
 }
@@ -38,10 +54,31 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [existingImages, setExistingImages] = useState(
-    recipe.recipe_images || []
+  const [existingImages, setExistingImages] = useState<NormalizedImage[]>(
+    () => {
+      const sorted = [...(recipe.recipe_images || [])].sort(
+        (a, b) => (a.display_order || 0) - (b.display_order || 0)
+      );
+      // Ensure display_order values are sequential starting from 0
+      return sorted.map((img, index) => ({
+        ...img,
+        display_order: index,
+      }));
+    }
   );
   const [newImages, setNewImages] = useState<File[]>([]);
+
+  // Wrapper to ensure display_order is always normalized
+  const handleExistingImagesChange = (images: ExistingImage[]) => {
+    const sorted = [...images].sort(
+      (a, b) => (a.display_order || 0) - (b.display_order || 0)
+    );
+    const normalized: NormalizedImage[] = sorted.map((img, index) => ({
+      ...img,
+      display_order: index,
+    }));
+    setExistingImages(normalized);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -92,17 +129,41 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         return;
       }
 
-      // Update existing images display order
       for (const image of existingImages) {
-        const { error: updateImageError } = await supabase
-          .from("recipe_images")
-          .update({ display_order: image.display_order })
-          .eq("id", image.id);
+        const { data: updateData, error: updateImageError } =
+          await supabase.rpc("update_image_display_order", {
+            p_image_id: image.id,
+            p_display_order: image.display_order,
+            p_user_id: user.id,
+          });
 
         if (updateImageError) {
-          console.error("Error updating image order:", updateImageError);
+          console.error(
+            "Error updating image order via RPC:",
+            updateImageError
+          );
+          console.error("Image ID:", image.id);
+          console.error("Display order:", image.display_order);
+          console.error(
+            "Full error details:",
+            JSON.stringify(updateImageError, null, 2)
+          );
+          setError(`Failed to update image order: ${updateImageError.message}`);
+          setLoading(false);
+          return;
         }
       }
+
+      console.log("All image display orders updated successfully");
+
+      // Verify the updates were actually saved
+      const { data: verifyData, error: verifyError } = await supabase
+        .from("recipe_images")
+        .select("id, display_order")
+        .in(
+          "id",
+          existingImages.map((img) => img.id)
+        );
 
       // Upload new images
       if (newImages.length > 0) {
@@ -149,8 +210,8 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         }
       }
 
-      router.push(`/recipes/${recipe.id}`);
-      router.refresh();
+      // Force hard navigation to bypass cache
+      router.push(`/recipes/${recipe.id}?t=${Date.now()}`);
     } catch (err) {
       console.error("Error updating recipe:", err);
       setError("Failed to update recipe. Please try again.");
@@ -242,7 +303,7 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         <ImageEditor
           existingImages={existingImages}
           newImages={newImages}
-          onExistingImagesChange={setExistingImages}
+          onExistingImagesChange={handleExistingImagesChange}
           onNewImagesChange={setNewImages}
           maxImages={10}
           disabled={loading}

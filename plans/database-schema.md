@@ -195,6 +195,16 @@ CREATE POLICY "Users can insert images to own recipes"
     )
   );
 
+CREATE POLICY "Users can update images of own recipes"
+  ON recipe_images FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM recipes
+      WHERE recipes.id = recipe_images.recipe_id
+      AND recipes.user_id = auth.uid()
+    )
+  );
+
 CREATE POLICY "Users can delete images of own recipes"
   ON recipe_images FOR DELETE
   USING (

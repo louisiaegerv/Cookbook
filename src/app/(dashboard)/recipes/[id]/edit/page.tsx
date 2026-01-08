@@ -39,6 +39,13 @@ export default async function EditRecipePage({
     .eq("user_id", user.id)
     .single();
 
+  // Sort the images after fetching
+  if (recipe && recipe.recipe_images) {
+    recipe.recipe_images.sort(
+      (a: any, b: any) => (a.display_order || 0) - (b.display_order || 0)
+    );
+  }
+
   if (error || !recipe) {
     notFound();
   }
