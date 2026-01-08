@@ -36,7 +36,8 @@ export default async function RecipesPage() {
       *,
       recipe_images (
         id,
-        image_url
+        image_url,
+        display_order
       ),
       recipe_tags (
         tags (
@@ -51,5 +52,14 @@ export default async function RecipesPage() {
     )
     .order("created_at", { ascending: false });
 
-  return <RecipesClient recipes={recipes || []} />;
+  // Sort images by display_order for each recipe
+  const sortedRecipes =
+    recipes?.map((recipe) => ({
+      ...recipe,
+      recipe_images: recipe.recipe_images?.sort(
+        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+      ),
+    })) || [];
+
+  return <RecipesClient recipes={sortedRecipes} />;
 }

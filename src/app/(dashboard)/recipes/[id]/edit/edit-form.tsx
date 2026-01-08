@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ImageEditor from "@/components/ui/image-editor";
+import type { UnifiedImage } from "@/components/ui/image-editor";
 import { Save, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -67,6 +68,7 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
     }
   );
   const [newImages, setNewImages] = useState<File[]>([]);
+  const [unifiedImages, setUnifiedImages] = useState<UnifiedImage[]>([]);
 
   // Wrapper to ensure display_order is always normalized
   const handleExistingImagesChange = (images: ExistingImage[]) => {
@@ -78,6 +80,10 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
       display_order: index,
     }));
     setExistingImages(normalized);
+  };
+
+  const handleUnifiedImagesChange = (images: UnifiedImage[]) => {
+    setUnifiedImages(images);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -129,10 +135,26 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
         return;
       }
 
-      for (const image of existingImages) {
+      // Use unified images for ordering if available, otherwise fall back to existingImages
+      const imagesToUpdate: UnifiedImage[] =
+        unifiedImages.length > 0
+          ? unifiedImages
+          : existingImages.map((img) => ({
+              id: img.id,
+              recipe_id: img.recipe_id,
+              image_url: img.image_url,
+              storage_path: img.storage_path,
+              display_order: img.display_order,
+              isNew: false,
+            }));
+
+      // Update existing images with their new display_order values
+      for (const image of imagesToUpdate) {
+        if (image.isNew) continue; // Skip new images, they'll be uploaded separately
+
         const { data: updateData, error: updateImageError } =
           await supabase.rpc("update_image_display_order", {
-            p_image_id: image.id,
+            p_image_id: image.id!,
             p_display_order: image.display_order,
             p_user_id: user.id,
           });
@@ -157,18 +179,24 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
       console.log("All image display orders updated successfully");
 
       // Verify the updates were actually saved
-      const { data: verifyData, error: verifyError } = await supabase
-        .from("recipe_images")
-        .select("id, display_order")
-        .in(
-          "id",
-          existingImages.map((img) => img.id)
-        );
+      const existingImageIds = imagesToUpdate
+        .filter((img) => !img.isNew)
+        .map((img) => img.id!);
 
-      // Upload new images
-      if (newImages.length > 0) {
-        for (let i = 0; i < newImages.length; i++) {
-          const file = newImages[i];
+      if (existingImageIds.length > 0) {
+        const { data: verifyData, error: verifyError } = await supabase
+          .from("recipe_images")
+          .select("id, display_order")
+          .in("id", existingImageIds);
+      }
+
+      // Upload new images with their correct display_order from unified list
+      const newImagesToUpload = imagesToUpdate.filter((img) => img.isNew);
+
+      if (newImagesToUpload.length > 0) {
+        for (let i = 0; i < newImagesToUpload.length; i++) {
+          const image = newImagesToUpload[i];
+          const file = image.file!;
           const fileExt = file.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random()
             .toString(36)
@@ -191,14 +219,14 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
             data: { publicUrl },
           } = supabase.storage.from("recipe-images").getPublicUrl(filePath);
 
-          // Insert image record
+          // Insert image record with the correct display_order from unified list
           const { error: insertError } = await supabase
             .from("recipe_images")
             .insert({
               recipe_id: recipe.id,
               image_url: publicUrl,
               storage_path: filePath,
-              display_order: existingImages.length + i,
+              display_order: image.display_order,
             });
 
           if (insertError) {
@@ -305,6 +333,7 @@ export default function EditRecipeForm({ recipe }: EditRecipeFormProps) {
           newImages={newImages}
           onExistingImagesChange={handleExistingImagesChange}
           onNewImagesChange={setNewImages}
+          onUnifiedImagesChange={handleUnifiedImagesChange}
           maxImages={10}
           disabled={loading}
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -12,7 +12,7 @@ import {
 import { Button } from "./button";
 import { createClient } from "@/lib/supabase/client";
 
-interface ExistingImage {
+export interface ExistingImage {
   id: string;
   recipe_id: string;
   image_url: string;
@@ -20,11 +20,22 @@ interface ExistingImage {
   display_order: number | null;
 }
 
+export interface UnifiedImage {
+  id?: string; // For existing images
+  file?: File; // For new images
+  image_url?: string; // For existing images
+  storage_path?: string; // For existing images
+  recipe_id?: string; // For existing images
+  display_order: number;
+  isNew: boolean; // true for new images, false for existing
+}
+
 interface ImageEditorProps {
   existingImages: ExistingImage[];
   newImages: File[];
   onExistingImagesChange: (images: ExistingImage[]) => void;
   onNewImagesChange: (images: File[]) => void;
+  onUnifiedImagesChange?: (images: UnifiedImage[]) => void;
   maxImages?: number;
   disabled?: boolean;
 }
@@ -34,12 +45,57 @@ export default function ImageEditor({
   newImages,
   onExistingImagesChange,
   onNewImagesChange,
+  onUnifiedImagesChange,
   maxImages = 10,
   disabled = false,
 }: ImageEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [internalUnifiedImages, setInternalUnifiedImages] = useState<
+    UnifiedImage[]
+  >([]);
+  const [isReordering, setIsReordering] = useState(false);
   const supabase = createClient();
+
+  // Update internal unified images when props change (but not during reordering)
+  useEffect(() => {
+    // Skip updates during reordering to prevent overwriting
+    if (isReordering) return;
+
+    // Only update if we have images in props and internal state is empty or out of sync
+    if (existingImages.length === 0 && newImages.length === 0) {
+      setInternalUnifiedImages([]);
+      return;
+    }
+
+    // Check if we need to update (avoid overwriting reordering changes)
+    const needsUpdate =
+      internalUnifiedImages.length !== existingImages.length + newImages.length;
+
+    if (!needsUpdate) return;
+
+    // Create a map to preserve display_order values from existing images
+    const existingImageOrderMap = new Map(
+      existingImages.map((img) => [img.id, img.display_order])
+    );
+
+    const unified: UnifiedImage[] = [
+      ...existingImages.map((img) => ({
+        ...img,
+        display_order: img.display_order || 0,
+        isNew: false,
+      })),
+      ...newImages.map((file, index) => ({
+        file,
+        display_order: existingImages.length + index,
+        isNew: true,
+      })),
+    ].sort((a, b) => a.display_order - b.display_order);
+
+    setInternalUnifiedImages(unified);
+  }, [existingImages, newImages, isReordering]);
+  // Use internal state for display and operations
+  const unifiedImages = internalUnifiedImages;
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -120,17 +176,31 @@ export default function ImageEditor({
     onNewImagesChange(newImages.filter((_, i) => i !== index));
   };
 
-  const moveImage = (fromIndex: number, toIndex: number) => {
+  const moveUnifiedImage = (fromIndex: number, toIndex: number) => {
     if (disabled) return;
 
-    // Sort images by display_order first to ensure correct indices
-    const sortedImages = [...existingImages].sort(
-      (a, b) => (a.display_order || 0) - (b.display_order || 0)
+    console.log("moveUnifiedImage called:", { fromIndex, toIndex, disabled });
+    console.log(
+      "Current unifiedImages:",
+      unifiedImages.map((img, idx) => ({
+        idx,
+        isNew: img.isNew,
+        id: img.id || "new",
+      }))
     );
 
-    const updatedImages = [...sortedImages];
+    const updatedImages = [...unifiedImages];
     const [movedImage] = updatedImages.splice(fromIndex, 1);
     updatedImages.splice(toIndex, 0, movedImage);
+
+    console.log(
+      "Updated images after move:",
+      updatedImages.map((img, idx) => ({
+        idx,
+        isNew: img.isNew,
+        id: img.id || "new",
+      }))
+    );
 
     // Update display_order for all images
     const imagesWithOrder = updatedImages.map((img, index) => ({
@@ -138,7 +208,51 @@ export default function ImageEditor({
       display_order: index,
     }));
 
-    onExistingImagesChange(imagesWithOrder);
+    console.log(
+      "Images with order:",
+      imagesWithOrder.map((img, idx) => ({
+        idx,
+        display_order: img.display_order,
+      }))
+    );
+
+    // Set reordering flag to prevent useEffect from overwriting
+    setIsReordering(true);
+
+    // Update internal state first
+    setInternalUnifiedImages(imagesWithOrder);
+
+    // Split back into existing and new images
+    const updatedExisting: ExistingImage[] = imagesWithOrder
+      .filter((img) => !img.isNew)
+      .map((img) => ({
+        id: img.id!,
+        recipe_id: img.recipe_id!,
+        image_url: img.image_url!,
+        storage_path: img.storage_path!,
+        display_order: img.display_order,
+      }));
+
+    const updatedNew: File[] = imagesWithOrder
+      .filter((img) => img.isNew)
+      .map((img) => img.file!);
+
+    // Don't call parent callbacks here - let them handle the split when saving
+    console.log(
+      "Updated internal state - existing:",
+      updatedExisting.length,
+      "new:",
+      updatedNew.length
+    );
+
+    // Notify parent of unified change if callback provided
+    if (onUnifiedImagesChange) {
+      console.log("Calling onUnifiedImagesChange");
+      onUnifiedImagesChange(imagesWithOrder);
+    }
+
+    // Clear reordering flag after a short delay to allow state to settle
+    setTimeout(() => setIsReordering(false), 0);
   };
 
   const uploadNewImages = async (): Promise<string[]> => {
@@ -239,18 +353,26 @@ export default function ImageEditor({
         </div>
       </div>
 
-      {/* Existing images */}
-      {existingImages.length > 0 && (
+      {/* Unified image list */}
+      {unifiedImages.length > 0 && (
         <div className="space-y-2">
-          <Label>Existing Images</Label>
+          <Label>Images</Label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {existingImages.map((image, index) => (
+            {unifiedImages.map((image, index) => (
               <div
-                key={image.id}
-                className="relative group aspect-square rounded-lg overflow-hidden border"
+                key={
+                  image.isNew ? `new-${image.file?.name}-${index}` : image.id
+                }
+                className={`relative group aspect-square rounded-lg overflow-hidden border ${
+                  image.isNew ? "border-primary" : ""
+                }`}
               >
                 <img
-                  src={image.image_url}
+                  src={
+                    image.isNew
+                      ? URL.createObjectURL(image.file!)
+                      : image.image_url
+                  }
                   alt={`Recipe image ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
@@ -261,11 +383,17 @@ export default function ImageEditor({
                       variant="destructive"
                       size="icon"
                       className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeExistingImage(image.id)}
+                      onClick={() =>
+                        image.isNew
+                          ? removeNewImage(
+                              newImages.findIndex((img) => img === image.file)
+                            )
+                          : removeExistingImage(image.id!)
+                      }
                     >
                       <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
-                    {existingImages.length > 1 && (
+                    {unifiedImages.length > 1 && (
                       <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           type="button"
@@ -273,7 +401,7 @@ export default function ImageEditor({
                           size="icon"
                           className="h-7 w-7 sm:h-8 sm:w-8"
                           disabled={index === 0}
-                          onClick={() => moveImage(index, index - 1)}
+                          onClick={() => moveUnifiedImage(index, index - 1)}
                         >
                           <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
@@ -282,11 +410,16 @@ export default function ImageEditor({
                           variant="secondary"
                           size="icon"
                           className="h-7 w-7 sm:h-8 sm:w-8"
-                          disabled={index === existingImages.length - 1}
-                          onClick={() => moveImage(index, index + 1)}
+                          disabled={index === unifiedImages.length - 1}
+                          onClick={() => moveUnifiedImage(index, index + 1)}
                         >
                           <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
+                      </div>
+                    )}
+                    {image.isNew && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] sm:text-xs p-1.5 sm:p-2 truncate">
+                        {image.file?.name}
                       </div>
                     )}
                   </>
@@ -297,48 +430,13 @@ export default function ImageEditor({
         </div>
       )}
 
-      {/* New images */}
-      {newImages.length > 0 && (
-        <div className="space-y-2">
-          <Label>New Images</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {newImages.map((image, index) => (
-              <div
-                key={`${image.name}-${index}`}
-                className="relative group aspect-square rounded-lg overflow-hidden border border-primary"
-              >
-                <img
-                  src={URL.createObjectURL(image)}
-                  alt={`New upload ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                {!disabled && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeNewImage(index)}
-                  >
-                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] sm:text-xs p-1.5 sm:p-2 truncate">
-                  {image.name}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Status indicator */}
-      {totalImages > 0 && !uploading && (
+      {unifiedImages.length > 0 && !uploading && (
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span>
-            {totalImages} of {maxImages} images ({existingImages.length}{" "}
-            existing, {newImages.length} new)
+            {unifiedImages.length} of {maxImages} images (
+            {existingImages.length} existing, {newImages.length} new)
           </span>
         </div>
       )}
