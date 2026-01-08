@@ -58,7 +58,29 @@ interface ScrapeResponse {
 
 interface ParseResponse {
   success: boolean;
-  data?: ParsedRecipeData;
+  data?: {
+    recipe: ParsedRecipeData;
+    tiktokAuthor?: {
+      uniqueId: string;
+      nickname: string;
+      avatarThumb: string;
+    };
+    tiktokVideoMetadata?: {
+      videoId: string;
+      videoUrl: string;
+      coverUrl: string;
+      dynamicCoverUrl: string;
+      description: string;
+      suggestedWords: string[];
+      musicTitle: string;
+      musicAuthor: string;
+      playCount: number;
+      likeCount: number;
+      shareCount: number;
+      commentCount: number;
+      videoDuration: number;
+    };
+  };
   error?: string;
 }
 
@@ -79,6 +101,10 @@ export default function RecipeForm() {
   const [parsedRecipe, setParsedRecipe] = useState<ParsedRecipeData | null>(
     null
   );
+  const [tiktokMetadata, setTiktokMetadata] = useState<any>(null);
+  const [importStep, setImportStep] = useState<
+    "idle" | "scraping" | "parsing" | "complete"
+  >("idle");
 
   // Tag management functions
   const addTag = (tag: string) => {
@@ -204,6 +230,7 @@ export default function RecipeForm() {
     setImportError("");
     setTiktokData(null);
     setParsedRecipe(null);
+    setImportStep("scraping");
 
     try {
       // Step 1: Scrape TikTok video data
@@ -222,6 +249,7 @@ export default function RecipeForm() {
       setTiktokData(scrapeData.data);
 
       // Step 2: Parse recipe data using AI
+      setImportStep("parsing");
       const parseResponse = await fetch("/api/tiktok/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -234,15 +262,24 @@ export default function RecipeForm() {
         throw new Error(parseData.error || "Failed to parse recipe data");
       }
 
-      setParsedRecipe(parseData.data);
+      // Extract recipe data from the new nested structure
+      const recipeData = (parseData.data as any).recipe || parseData.data;
+
+      setParsedRecipe(recipeData);
+
+      // Store TikTok metadata for later use when saving
+      setTiktokMetadata(parseData.data);
+
+      setImportStep("complete");
 
       // Populate form fields with parsed data
-      populateFormFields(parseData.data);
+      populateFormFields(recipeData);
     } catch (err) {
       console.error("TikTok import error:", err);
       setImportError(
         err instanceof Error ? err.message : "Failed to import from TikTok"
       );
+      setImportStep("idle");
     } finally {
       setImporting(false);
     }
@@ -308,8 +345,10 @@ export default function RecipeForm() {
     setTiktokUrl("");
     setTiktokData(null);
     setParsedRecipe(null);
+    setTiktokMetadata(null);
     setImportError("");
     setTags([]);
+    setImportStep("idle");
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -348,10 +387,11 @@ export default function RecipeForm() {
         uploadedImages = await uploadImagesToStorage(images);
       }
 
-      // If no images uploaded but TikTok data is available, download the cover image
-      if (uploadedImages.length === 0 && tiktokData) {
+      // If no images uploaded but TikTok metadata is available, download the cover image
+      if (uploadedImages.length === 0 && tiktokMetadata?.tiktokVideoMetadata) {
         const tiktokImage = await downloadAndUploadTikTokImage(
-          tiktokData.dynamicCoverUrl || tiktokData.coverUrl
+          tiktokMetadata.tiktokVideoMetadata.dynamicCoverUrl ||
+            tiktokMetadata.tiktokVideoMetadata.coverUrl
         );
         if (tiktokImage) {
           uploadedImages.push(tiktokImage);
@@ -368,8 +408,8 @@ export default function RecipeForm() {
         cooking_time: cookingTime ? parseInt(cookingTime) : null,
       };
 
-      // Add source_id if TikTok data is available
-      if (tiktokData) {
+      // Add source_id if TikTok metadata is available
+      if (tiktokMetadata) {
         // Get TikTok source ID
         const { data: sourceData } = await supabase
           .from("recipe_sources")
@@ -430,15 +470,15 @@ export default function RecipeForm() {
       }
 
       // Create TikTok metadata if available
-      if (tiktokData && recipeData) {
+      if (tiktokMetadata && recipeData) {
         try {
           // Get or create TikTok author
           const { data: authorData } = await supabase.rpc(
             "get_or_create_tiktok_author",
             {
-              p_unique_id: tiktokData.author.uniqueId,
-              p_nickname: tiktokData.author.nickname,
-              p_avatar_thumb: tiktokData.author.avatarThumb,
+              p_unique_id: tiktokMetadata.tiktokAuthor?.uniqueId || "",
+              p_nickname: tiktokMetadata.tiktokAuthor?.nickname || "",
+              p_avatar_thumb: tiktokMetadata.tiktokAuthor?.avatarThumb || "",
             }
           );
 
@@ -449,15 +489,26 @@ export default function RecipeForm() {
             .eq("source_type", "tiktok")
             .single();
 
-          if (sourceData && authorData) {
+          if (sourceData && authorData && tiktokMetadata.tiktokVideoMetadata) {
             await supabase.from("tiktok_video_metadata").insert({
               recipe_id: recipeData.id,
               source_id: sourceData.id,
               author_id: authorData,
-              video_id: tiktokData.videoId,
-              video_url: tiktokData.videoUrl,
-              cover_image_url: tiktokData.coverUrl,
-              dynamic_cover_url: tiktokData.dynamicCoverUrl,
+              video_id: tiktokMetadata.tiktokVideoMetadata.videoId,
+              video_url: tiktokMetadata.tiktokVideoMetadata.videoUrl,
+              cover_image_url: tiktokMetadata.tiktokVideoMetadata.coverUrl,
+              dynamic_cover_url:
+                tiktokMetadata.tiktokVideoMetadata.dynamicCoverUrl,
+              description: tiktokMetadata.tiktokVideoMetadata.description,
+              suggested_words:
+                tiktokMetadata.tiktokVideoMetadata.suggestedWords,
+              music_title: tiktokMetadata.tiktokVideoMetadata.musicTitle,
+              music_author: tiktokMetadata.tiktokVideoMetadata.musicAuthor,
+              play_count: tiktokMetadata.tiktokVideoMetadata.playCount,
+              like_count: tiktokMetadata.tiktokVideoMetadata.likeCount,
+              share_count: tiktokMetadata.tiktokVideoMetadata.shareCount,
+              comment_count: tiktokMetadata.tiktokVideoMetadata.commentCount,
+              video_duration: tiktokMetadata.tiktokVideoMetadata.videoDuration,
             });
           }
         } catch (metadataError) {
@@ -556,8 +607,186 @@ export default function RecipeForm() {
             </Button>
           )}
         </div>
+        {importing && importStep === "scraping" ? (
+          <div className="bg-background border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="absolute inset-0 h-5 w-5 animate-ping rounded-full bg-primary/20" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Scraping TikTok video...</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Fetching video information from TikTok...
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : tiktokData && (importing || !parsedRecipe) ? (
+          /* TikTok Preview + Loading during parsing */
+          <div className="space-y-4">
+            {/* Loading indicator for parsing */}
+            {importing && (
+              <div className="bg-background border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <div className="absolute inset-0 h-5 w-5 animate-ping rounded-full bg-primary/20" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {importStep === "parsing" && "Parsing recipe with AI..."}
+                      {importStep === "complete" && "Almost done..."}
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div
+                          className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                            importStep === "parsing" ||
+                            importStep === "complete"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          }`}
+                        >
+                          {(importStep === "parsing" ||
+                            importStep === "complete") && (
+                            <span className="text-xs">✓</span>
+                          )}
+                        </div>
+                        <span>Scrape video data</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div
+                          className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                            importStep === "parsing" ||
+                            importStep === "complete"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          }`}
+                        >
+                          {importStep === "complete" && (
+                            <span className="text-xs">✓</span>
+                          )}
+                          {importStep === "parsing" && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                        </div>
+                        <span>Parse recipe data</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {importStep === "parsing" &&
+                    "Analyzing video content to extract recipe details... This may take a moment."}
+                  {importStep === "complete" && "Finalizing import..."}
+                </p>
+              </div>
+            )}
 
-        {!tiktokData ? (
+            {/* TikTok Preview */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Video Preview */}
+              <div className="flex-shrink-0">
+                <div className="relative w-32 h-56 sm:w-40 sm:h-64 bg-black rounded-lg overflow-hidden">
+                  <img
+                    src={tiktokData.dynamicCoverUrl || tiktokData.coverUrl}
+                    alt="TikTok video cover"
+                    className="w-full h-full object-cover"
+                  />
+                  <a
+                    href={tiktokData.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity"
+                  >
+                    <ExternalLink className="h-6 w-6 text-white" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Author Info */}
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={tiktokData.author.avatarThumb}
+                    alt={tiktokData.author.nickname}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {tiktokData.author.nickname}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      @{tiktokData.author.uniqueId}
+                    </p>
+                  </div>
+                </div>
+
+                {tiktokData.suggestedWords &&
+                  tiktokData.suggestedWords.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {tiktokData.suggestedWords
+                        .slice(0, 5)
+                        .map((word, idx) => {
+                          const isAdded = tags.includes(word);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                if (!isAdded) {
+                                  addTag(word);
+                                } else {
+                                  removeTag(word);
+                                }
+                              }}
+                              disabled={loading}
+                              className={`text-xs px-2 py-1 rounded-full transition-colors ${
+                                isAdded
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-primary/10 text-primary hover:bg-primary/20"
+                              }`}
+                            >
+                              {word}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
+
+                {tiktokData.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-3">
+                    {tiktokData.description}
+                  </p>
+                )}
+
+                <a
+                  href={tiktokUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View original video
+                </a>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground bg-background p-3 rounded-md">
+              <p className="font-medium mb-1">
+                {importing
+                  ? "Video data loaded. Parsing recipe details..."
+                  : "✓ Recipe data imported successfully"}
+              </p>
+              <p>
+                {importing
+                  ? "Review the preview above while we extract recipe information."
+                  : "Review and edit the form below before saving."}
+              </p>
+            </div>
+          </div>
+        ) : !tiktokData ? (
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               type="url"
@@ -679,8 +908,11 @@ export default function RecipeForm() {
             </div>
 
             <div className="text-xs text-muted-foreground bg-background p-3 rounded-md">
-              <p className="font-medium mb-1">
-                ✓ Recipe data imported successfully
+              <p className="font-medium mb-1 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center text-xs">
+                  ✓
+                </span>
+                Recipe data imported successfully
               </p>
               <p>Review and edit the form below before saving.</p>
             </div>

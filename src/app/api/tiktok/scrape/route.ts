@@ -26,6 +26,7 @@ interface TikTokVideoData {
     PlayAddrStruct: {
       UrlList: string[];
     };
+    duration?: number;
   };
   author: {
     uniqueId: string;
@@ -33,6 +34,16 @@ interface TikTokVideoData {
     nickname: string;
   };
   suggestedWords: string[];
+  music?: {
+    title?: string;
+    authorName?: string;
+  };
+  stats?: {
+    playCount?: number;
+    diggCount?: number;
+    shareCount?: number;
+    commentCount?: number;
+  };
 }
 
 interface ScrapeResponse {
@@ -49,6 +60,19 @@ interface ScrapeResponse {
     dynamicCoverUrl: string;
     videoUrl: string;
     videoId: string;
+    video?: {
+      duration?: number;
+    };
+    music?: {
+      title?: string;
+      authorName?: string;
+    };
+    stats?: {
+      playCount?: number;
+      diggCount?: number;
+      shareCount?: number;
+      commentCount?: number;
+    };
   };
   error?: string;
 }
@@ -164,7 +188,7 @@ function extractVideoData(
   // Extract video URL with tiktok.com domain
   const videoUrls = videoData.video.PlayAddrStruct.UrlList;
   const videoUrl =
-    videoUrls.find((url) => url.includes("tiktok.com")) || videoUrls[0] || "";
+    videoUrls.find((url) => url.includes("www.tiktok.com/aweme/")) || "";
 
   // Extract video ID from URL or JSON
   const videoId = videoData.id || extractVideoIdFromUrl(url) || "";
@@ -181,6 +205,19 @@ function extractVideoData(
     dynamicCoverUrl: videoData.video.dynamicCover || "",
     videoUrl,
     videoId,
+    video: {
+      duration: videoData.video?.duration || 0,
+    },
+    music: {
+      title: videoData.music?.title || "",
+      authorName: videoData.music?.authorName || "",
+    },
+    stats: {
+      playCount: videoData.stats?.playCount || 0,
+      diggCount: videoData.stats?.diggCount || 0,
+      shareCount: videoData.stats?.shareCount || 0,
+      commentCount: videoData.stats?.commentCount || 0,
+    },
   };
 }
 

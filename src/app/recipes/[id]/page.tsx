@@ -7,7 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Clock, Trash2, Edit, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  Clock,
+  Trash2,
+  Edit,
+  Eye,
+  Heart,
+  Share2,
+  MessageCircle,
+  Play,
+  Music,
+  ExternalLink,
+  CheckCircle2,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteRecipeButton from "@/components/ui/delete-recipe-button";
@@ -16,6 +30,9 @@ import {
   Tag,
   RecipeImage,
   Collection,
+  TikTokAuthor,
+  TikTokVideoMetadata,
+  RecipeSource,
 } from "@/lib/types/recipe";
 import RecipeTags from "@/components/ui/recipe-tags";
 import RecipeCollections from "@/components/ui/recipe-collections";
@@ -38,12 +55,17 @@ export default async function PublicRecipeDetailPage({
   const { id } = await params;
   const { collectionId } = await searchParams;
 
-  // Fetch recipe with images, tags, and collections (without filtering by user_id for public access)
+  // Fetch recipe with images, tags, collections, and source (without filtering by user_id for public access)
   const { data: recipe, error } = await supabase
     .from("recipes")
     .select(
       `
       *,
+      recipe_sources (
+        id,
+        name,
+        created_at
+      ),
       recipe_images (
         id,
         image_url,
@@ -82,10 +104,40 @@ export default async function PublicRecipeDetailPage({
   await supabase.rpc("increment_recipe_view_count", { recipe_id: id });
 
   const typedRecipe = recipe as RecipeWithRelations & {
+    recipe_sources?: RecipeSource;
     recipe_tags?: { tags: Tag }[];
     recipe_images?: RecipeImage[];
     recipe_collections?: { collections: Collection }[];
   };
+
+  // Fetch TikTok data if this recipe is from TikTok
+  let tiktokAuthor: TikTokAuthor | null = null;
+  let tiktokVideoMetadata: TikTokVideoMetadata | null = null;
+
+  if (typedRecipe.recipe_sources?.name?.toLowerCase() === "tiktok") {
+    // Fetch TikTok video metadata first
+    const { data: videoData } = await supabase
+      .from("tiktok_video_metadata")
+      .select("*")
+      .eq("recipe_id", id)
+      .single();
+
+    if (videoData) {
+      tiktokVideoMetadata = videoData as TikTokVideoMetadata;
+
+      // Then fetch TikTok author data using the author_id from video metadata
+      const { data: authorData } = await supabase
+        .from("tiktok_authors")
+        .select("*")
+        .eq("id", tiktokVideoMetadata.author_id)
+        .single();
+
+      if (authorData) {
+        tiktokAuthor = authorData as TikTokAuthor;
+      }
+    }
+  }
+
   typedRecipe.images = typedRecipe.recipe_images;
   const tags = typedRecipe.recipe_tags?.map((rt) => rt.tags) || [];
   const collections =
@@ -176,6 +228,165 @@ export default async function PublicRecipeDetailPage({
             </div>
           </div>
         </div>
+
+        {/* TikTok Section */}
+        {typedRecipe.recipe_sources?.name?.toLowerCase() === "tiktok" &&
+          tiktokAuthor &&
+          tiktokVideoMetadata && (
+            <Card className="mb-6 sm:mb-8 border-t-4 border-t-pink-500 bg-gradient-to-br from-pink-50/50 to-purple-50/50 dark:from-pink-950/20 dark:to-purple-950/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className="bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-pink-200 dark:border-pink-800"
+                    >
+                      <Heart className="h-3 w-3 mr-1" />
+                      TikTok
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Source from TikTok
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Author Info */}
+                <div className="flex items-start gap-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                  {tiktokAuthor.avatar_thumb && (
+                    <img
+                      src={tiktokAuthor.avatar_thumb}
+                      alt={tiktokAuthor.nickname || tiktokAuthor.unique_id}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-pink-200 dark:border-pink-800"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-lg">
+                        {tiktokAuthor.nickname || tiktokAuthor.unique_id}
+                      </h3>
+                      {tiktokAuthor.verified && (
+                        <CheckCircle2 className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      @{tiktokAuthor.unique_id}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Embedded Video */}
+                {tiktokVideoMetadata.video_id && (
+                  <div className="space-y-3">
+                    <div className="relative w-full rounded-lg overflow-hidden bg-gray-900 shadow-lg">
+                      <div className="aspect-[9/16] max-h-[600px] mx-auto">
+                        <iframe
+                          src={`https://www.tiktok.com/embed/v2/${tiktokVideoMetadata.video_id}`}
+                          className="w-full h-full border-0"
+                          allowFullScreen
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          title={`TikTok video by @${tiktokAuthor?.unique_id}`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Video Link */}
+                    {tiktokAuthor.unique_id && (
+                      <a
+                        href={`https://www.tiktok.com/@${tiktokAuthor.unique_id}/video/${tiktokVideoMetadata.video_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors group text-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
+                            <ExternalLink className="h-4 w-4 text-pink-600 dark:text-pink-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium">View on TikTok</p>
+                            <p className="text-xs text-muted-foreground">
+                              @{tiktokAuthor.unique_id}/video/
+                              {tiktokVideoMetadata.video_id}
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowLeft className="h-4 w-4 rotate-[-45deg] text-muted-foreground group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Engagement Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Heart className="h-4 w-4 text-pink-500" />
+                      <span className="text-2xl font-bold">
+                        {tiktokVideoMetadata.like_count &&
+                        tiktokVideoMetadata.like_count >= 1000
+                          ? `${(tiktokVideoMetadata.like_count / 1000).toFixed(
+                              1
+                            )}K`
+                          : tiktokVideoMetadata.like_count?.toLocaleString() ||
+                            "0"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Likes</p>
+                  </div>
+                  <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Share2 className="h-4 w-4 text-blue-500" />
+                      <span className="text-2xl font-bold">
+                        {tiktokVideoMetadata.share_count &&
+                        tiktokVideoMetadata.share_count >= 1000
+                          ? `${(tiktokVideoMetadata.share_count / 1000).toFixed(
+                              1
+                            )}K`
+                          : tiktokVideoMetadata.share_count?.toLocaleString() ||
+                            "0"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Shares</p>
+                  </div>
+                  <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <MessageCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-2xl font-bold">
+                        {tiktokVideoMetadata.comment_count &&
+                        tiktokVideoMetadata.comment_count >= 1000
+                          ? `${(
+                              tiktokVideoMetadata.comment_count / 1000
+                            ).toFixed(1)}K`
+                          : tiktokVideoMetadata.comment_count?.toLocaleString() ||
+                            "0"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Comments</p>
+                  </div>
+                  <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Play className="h-4 w-4 text-purple-500" />
+                      <span className="text-2xl font-bold">
+                        {tiktokVideoMetadata.play_count &&
+                        tiktokVideoMetadata.play_count >= 1000000
+                          ? `${(
+                              tiktokVideoMetadata.play_count / 1000000
+                            ).toFixed(1)}M`
+                          : tiktokVideoMetadata.play_count &&
+                            tiktokVideoMetadata.play_count >= 1000
+                          ? `${(tiktokVideoMetadata.play_count / 1000).toFixed(
+                              1
+                            )}K`
+                          : tiktokVideoMetadata.play_count?.toLocaleString() ||
+                            "0"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Views</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         {/* Tags */}
         <RecipeTags recipeId={typedRecipe.id} tags={tags} />

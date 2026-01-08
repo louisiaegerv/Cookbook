@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createClient } from "@/lib/supabase/server";
 
 // Rate limiting store (in-memory, consider Redis for production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -19,6 +20,19 @@ interface TikTokVideoData {
   dynamicCoverUrl: string;
   videoUrl: string;
   videoId: string;
+  video?: {
+    duration?: number;
+  };
+  music?: {
+    title?: string;
+    authorName?: string;
+  };
+  stats?: {
+    playCount?: number;
+    diggCount?: number;
+    shareCount?: number;
+    commentCount?: number;
+  };
 }
 
 interface Ingredient {
@@ -250,6 +264,90 @@ function parseAIResponse(aiResponse: string): ParsedRecipeData {
   }
 }
 
+// Helper function to get or create a TikTok author
+async function getOrCreateTikTokAuthor(
+  supabase: any,
+  authorData: {
+    uniqueId: string;
+    avatarThumb: string;
+    nickname: string;
+    verified?: boolean;
+    followerCount?: number;
+  }
+): Promise<{ data: any; error: any }> {
+  try {
+    // Check if author already exists
+    const { data: existingAuthor, error: fetchError } = await supabase
+      .from("tiktok_authors")
+      .select("id")
+      .eq("unique_id", authorData.uniqueId)
+      .single();
+
+    if (fetchError && fetchError.code !== "PGRST116") {
+      return { data: null, error: fetchError };
+    }
+
+    // If author exists, update it with latest data
+    if (existingAuthor) {
+      const { data: updatedAuthor, error: updateError } = await supabase
+        .from("tiktok_authors")
+        .update({
+          nickname: authorData.nickname,
+          avatar_thumb: authorData.avatarThumb,
+          verified: authorData.verified ?? false,
+          follower_count: authorData.followerCount ?? 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingAuthor.id)
+        .select()
+        .single();
+
+      return { data: updatedAuthor, error: updateError };
+    }
+
+    // Create new author
+    const { data: newAuthor, error: insertError } = await supabase
+      .from("tiktok_authors")
+      .insert({
+        unique_id: authorData.uniqueId,
+        nickname: authorData.nickname,
+        avatar_thumb: authorData.avatarThumb,
+        verified: authorData.verified ?? false,
+        follower_count: authorData.followerCount ?? 0,
+      })
+      .select()
+      .single();
+
+    return { data: newAuthor, error: insertError };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// Helper function to get TikTok source ID
+async function getTikTokSourceId(supabase: any): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("recipe_sources")
+      .select("id")
+      .eq("source_type", "tiktok")
+      .single();
+
+    if (error) {
+      console.error("Error getting TikTok source ID:", error);
+      return null;
+    }
+
+    return data?.id || null;
+  } catch (error) {
+    console.error("Error getting TikTok source ID:", error);
+    return null;
+  }
+}
+
 // Main API route handler
 export async function POST(request: NextRequest) {
   try {
@@ -303,12 +401,44 @@ export async function POST(request: NextRequest) {
     // Parse AI response
     const parsedRecipe = parseAIResponse(aiResponse);
 
-    // Return success response
+    // Return parsed data for user review (without creating recipe)
     return NextResponse.json(
       {
         success: true,
-        data: parsedRecipe,
-      } as ParseResponse,
+        data: {
+          recipe: {
+            title: parsedRecipe.title,
+            description: parsedRecipe.description,
+            ingredients: parsedRecipe.ingredients,
+            instructions: parsedRecipe.instructions,
+            prepTime: parsedRecipe.prepTime,
+            cookTime: parsedRecipe.cookTime,
+            servings: parsedRecipe.servings,
+            tags: parsedRecipe.tags,
+            notes: parsedRecipe.notes,
+          },
+          tiktokAuthor: {
+            uniqueId: videoData.author.uniqueId,
+            nickname: videoData.author.nickname,
+            avatarThumb: videoData.author.avatarThumb,
+          },
+          tiktokVideoMetadata: {
+            videoId: videoData.videoId,
+            videoUrl: videoData.videoUrl,
+            coverUrl: videoData.coverUrl,
+            dynamicCoverUrl: videoData.dynamicCoverUrl,
+            description: videoData.description,
+            suggestedWords: videoData.suggestedWords,
+            musicTitle: videoData.music?.title || "",
+            musicAuthor: videoData.music?.authorName || "",
+            playCount: videoData.stats?.playCount || 0,
+            likeCount: videoData.stats?.diggCount || 0,
+            shareCount: videoData.stats?.shareCount || 0,
+            commentCount: videoData.stats?.commentCount || 0,
+            videoDuration: videoData.video?.duration || 0,
+          },
+        },
+      },
       { status: 200 }
     );
   } catch (error) {
@@ -358,6 +488,19 @@ export async function GET(request: NextRequest) {
       dynamicCoverUrl: "",
       videoUrl: "",
       videoId: "",
+      video: {
+        duration: 0,
+      },
+      music: {
+        authorName: "",
+        title: "",
+      },
+      stats: {
+        diggCount: 0,
+        shareCount: 0,
+        commentCount: 0,
+        playCount: 0,
+      },
     };
 
     // Reuse the POST logic by creating a mock request
