@@ -146,7 +146,7 @@ Please extract and return ONLY a valid JSON object with the following structure:
   "cookTime": "cook time (e.g., '20 minutes', '1 hour')",
   "servings": number of servings,
   "tags": ["tag1", "tag2", "tag3"],
-  "notes": "Additional notes including credit to TikTok creator"
+  "notes": "Additional notes or 1-3 tips extracted from recipe (can make them up if none were included), in markdown format with newlines as \n\n"
 }
 
 Guidelines:
@@ -155,10 +155,9 @@ Guidelines:
 3. For ingredients, separate quantity and unit when possible
 4. Convert time formats to be consistent (e.g., "15 minutes", "1 hour 30 mins")
 5. Use the suggested words as hints for relevant tags
-6. Include credit to the TikTok creator (@${author.uniqueId}) in the notes
-7. If the description doesn't contain a recipe, still try to extract any food-related information
-8. Return ONLY the JSON object, no additional text or explanation
-9. Ensure the JSON is valid and properly formatted
+6. If the description doesn't contain a recipe, still try to extract any food-related information
+7. Return ONLY the JSON object, no additional text or explanation
+8. Ensure the JSON is valid and properly formatted
 
 Example of expected output format:
 {
@@ -180,7 +179,7 @@ Example of expected output format:
   "cookTime": "12 minutes",
   "servings": 24,
   "tags": ["cookies", "dessert", "baking", "chocolate"],
-  "notes": "Recipe credit: @${author.uniqueId} on TikTok"
+  "notes": "1. Can chill dough before baking\n2. Add your own toppings to make it even better\n3. If they are not rising, your baking powder might be expired."
 }
 
 Return ONLY the JSON object.`;

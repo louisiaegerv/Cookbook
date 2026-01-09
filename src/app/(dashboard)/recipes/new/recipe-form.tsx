@@ -291,9 +291,17 @@ export default function RecipeForm() {
       titleRef.current.value = recipeData.title;
     }
 
-    // Populate description
-    if (descriptionRef.current && recipeData.description) {
-      descriptionRef.current.value = recipeData.description;
+    // Populate description with notes appended in markdown format
+    if (descriptionRef.current) {
+      let description = recipeData.description || "";
+
+      // Append notes if available
+      if (recipeData.notes && recipeData.notes.trim()) {
+        description +=
+          "\n\n---\n\n **Tips & Notes**\n\n" + recipeData.notes.trim();
+      }
+
+      descriptionRef.current.value = description;
     }
 
     // Populate ingredients (format as "quantity unit name" per line)

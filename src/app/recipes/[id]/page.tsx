@@ -187,7 +187,7 @@ export default async function PublicRecipeDetailPage({
                 {typedRecipe.title}
               </h1>
               {typedRecipe.description && (
-                <div className="text-muted-foreground text-lg prose prose-slate max-w-none">
+                <div className="text-muted-foreground text-lg prose prose-slate dark:prose-invert max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {typedRecipe.description}
                   </ReactMarkdown>
@@ -428,7 +428,7 @@ export default async function PublicRecipeDetailPage({
             <CardTitle>Instructions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-slate max-w-none prose-sm sm:prose-base">
+            <div className="prose prose-slate dark:prose-invert max-w-none prose-sm sm:prose-base">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {typedRecipe.instructions}
               </ReactMarkdown>
