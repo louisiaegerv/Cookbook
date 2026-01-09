@@ -146,7 +146,7 @@ Please extract and return ONLY a valid JSON object with the following structure:
   "cookTime": "cook time (e.g., '20 minutes', '1 hour')",
   "servings": number of servings,
   "tags": ["tag1", "tag2", "tag3"],
-  "notes": "Additional notes or 1-3 tips extracted from recipe (can make them up if none were included), in markdown format with newlines as \n\n"
+  "notes": "Additional notes or 1-3 tips extracted from recipe (can make them up if none were included), in markdown format with newlines as \n"
 }
 
 Guidelines:
@@ -158,6 +158,7 @@ Guidelines:
 6. If the description doesn't contain a recipe, still try to extract any food-related information
 7. Return ONLY the JSON object, no additional text or explanation
 8. Ensure the JSON is valid and properly formatted
+9. Don't give generic tips like "Adjust seasonings to your taste." That's not helpful and everyone already knows that.
 
 Example of expected output format:
 {
@@ -179,7 +180,7 @@ Example of expected output format:
   "cookTime": "12 minutes",
   "servings": 24,
   "tags": ["cookies", "dessert", "baking", "chocolate"],
-  "notes": "1. Can chill dough before baking\n2. Add your own toppings to make it even better\n3. If they are not rising, your baking powder might be expired."
+  "notes": "1. Cool on wire rack to soften or leave on sheet tray to crisp up bottoms\n2. Try topping with sea salt for more flavor\n3. If they are not rising, your baking powder might be expired."
 }
 
 Return ONLY the JSON object.`;
