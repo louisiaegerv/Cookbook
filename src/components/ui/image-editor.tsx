@@ -65,6 +65,9 @@ export default function ImageEditor({
     // Only update if we have images in props and internal state is empty or out of sync
     if (existingImages.length === 0 && newImages.length === 0) {
       setInternalUnifiedImages([]);
+      if (onUnifiedImagesChange) {
+        onUnifiedImagesChange([]);
+      }
       return;
     }
 
@@ -93,7 +96,12 @@ export default function ImageEditor({
     ].sort((a, b) => a.display_order - b.display_order);
 
     setInternalUnifiedImages(unified);
-  }, [existingImages, newImages, isReordering]);
+
+    // Notify parent of unified images change
+    if (onUnifiedImagesChange) {
+      onUnifiedImagesChange(unified);
+    }
+  }, [existingImages, newImages, isReordering, onUnifiedImagesChange]);
   // Use internal state for display and operations
   const unifiedImages = internalUnifiedImages;
 
