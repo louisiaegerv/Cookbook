@@ -1,4 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,7 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, FolderOpen, Clock, Eye } from "lucide-react";
+import {
+  ArrowLeft,
+  FolderOpen,
+  Clock,
+  Eye,
+  Trash2,
+  X,
+  Check,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CollectionWithRecipes } from "@/lib/types/collection";
@@ -16,56 +27,167 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import DeleteCollectionButton from "@/components/ui/delete-collection-button";
 
-export default async function PublicCollectionDetailPage({
+export default function PublicCollectionDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = createClient();
+  const [collection, setCollection] = useState<CollectionWithRecipes | null>(
+    null
+  );
+  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedRecipes, setSelectedRecipes] = useState<Set<string>>(
+    new Set()
+  );
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [id, setId] = useState<string>("");
 
-  // Await params to get the id
-  const { id } = await params;
+  useEffect(() => {
+    async function loadData() {
+      const { id: collectionId } = await params;
+      setId(collectionId);
 
-  // Fetch collection with recipes and images (public access)
-  const { data: collection, error } = await supabase
-    .from("collections")
-    .select(
-      `
-      *,
-      recipe_collections (
-        recipes (
+      // Get user
+      const {
+        data: { user: userData },
+      } = await supabase.auth.getUser();
+      setUser(userData);
+
+      // Fetch collection with recipes
+      const { data: collectionData, error } = await supabase
+        .from("collections")
+        .select(
+          `
           *,
-          recipe_images (
-            id,
-            image_url
-          ),
-          recipe_tags (
-            tags (
-              id,
-              name,
-              color,
-              user_id,
-              created_at
+          recipe_collections (
+            recipes (
+              *,
+              recipe_images (
+                id,
+                image_url
+              ),
+              recipe_tags (
+                tags (
+                  id,
+                  name,
+                  color,
+                  user_id,
+                  created_at
+                )
+              )
             )
           )
+        `
         )
-      )
-    `
-    )
-    .eq("id", id)
-    .single();
+        .eq("id", collectionId)
+        .single();
 
-  if (error || !collection) {
+      if (error || !collectionData) {
+        setLoading(false);
+        return;
+      }
+
+      setCollection(collectionData as CollectionWithRecipes);
+      setLoading(false);
+    }
+
+    loadData();
+  }, [params, supabase]);
+
+  const handleToggleSelect = (recipeId: string) => {
+    setSelectedRecipes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleEnableMultiSelect = (recipeId: string) => {
+    setSelectionMode(true);
+    setSelectedRecipes(new Set([recipeId]));
+  };
+
+  const handleExitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedRecipes(new Set());
+  };
+
+  const handleBulkRemove = async () => {
+    if (selectedRecipes.size === 0) return;
+
+    setIsRemoving(true);
+    try {
+      // Remove all selected recipes from the collection
+      const { error } = await supabase
+        .from("recipe_collections")
+        .delete()
+        .eq("collection_id", id)
+        .in("recipe_id", Array.from(selectedRecipes));
+
+      if (error) throw error;
+
+      // Refresh collection data
+      const { data: collectionData, error: fetchError } = await supabase
+        .from("collections")
+        .select(
+          `
+          *,
+          recipe_collections (
+            recipes (
+              *,
+              recipe_images (
+                id,
+                image_url
+              ),
+              recipe_tags (
+                tags (
+                  id,
+                  name,
+                  color,
+                  user_id,
+                  created_at
+                )
+              )
+            )
+          )
+        `
+        )
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      setCollection(collectionData as CollectionWithRecipes);
+      setSelectionMode(false);
+      setSelectedRecipes(new Set());
+    } catch (error) {
+      console.error("Error removing recipes:", error);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!collection) {
     notFound();
   }
 
-  const typedCollection = collection as CollectionWithRecipes;
-  const recipes =
-    typedCollection.recipe_collections?.map((rc) => rc.recipes) || [];
-  const isOwner = user && user.id === typedCollection.user_id;
+  const recipes = collection.recipe_collections?.map((rc) => rc.recipes) || [];
+  const isOwner = user && user.id === collection.user_id;
 
   return (
     <div className="min-h-screen">
@@ -85,19 +207,19 @@ export default async function PublicCollectionDetailPage({
               <div className="flex items-center gap-2 mb-2">
                 <FolderOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
-                  {typedCollection.name}
+                  {collection.name}
                 </h1>
                 {isOwner && (
                   <DeleteCollectionButton
-                    collectionId={typedCollection.id}
-                    collectionName={typedCollection.name}
+                    collectionId={collection.id}
+                    collectionName={collection.name}
                   />
                 )}
               </div>
-              {typedCollection.description && (
+              {collection.description && (
                 <div className="text-muted-foreground text-lg prose prose-slate max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {typedCollection.description}
+                    {collection.description}
                   </ReactMarkdown>
                 </div>
               )}
@@ -114,12 +236,53 @@ export default async function PublicCollectionDetailPage({
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="text-sm sm:text-lg">
-                Created{" "}
-                {new Date(typedCollection.created_at).toLocaleDateString()}
+                Created {new Date(collection.created_at).toLocaleDateString()}
               </span>
             </div>
           </div>
         </div>
+
+        {/* Selection mode controls */}
+        {selectionMode && isOwner && (
+          <div className="mb-4 sm:mb-6 flex items-center justify-between bg-muted p-3 sm:p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <span className="text-sm sm:text-base">
+                {selectedRecipes.size} recipe
+                {selectedRecipes.size !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExitSelectionMode}
+                disabled={isRemoving}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkRemove}
+                disabled={selectedRecipes.size === 0 || isRemoving}
+              >
+                {isRemoving ? (
+                  <>
+                    <span className="animate-spin mr-2">⟳</span>
+                    Removing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Remove Selected
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Recipes grid */}
         {recipes.length === 0 ? (
@@ -139,7 +302,11 @@ export default async function PublicCollectionDetailPage({
                 key={recipe.id}
                 recipe={recipe}
                 showViewCount={true}
-                collectionId={typedCollection.id}
+                collectionId={collection.id}
+                selectionMode={selectionMode}
+                isSelected={selectedRecipes.has(recipe.id)}
+                onToggleSelect={handleToggleSelect}
+                onEnableMultiSelect={handleEnableMultiSelect}
               />
             ))}
           </div>

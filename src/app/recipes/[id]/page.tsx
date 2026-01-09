@@ -39,6 +39,80 @@ import RecipeCollections from "@/components/ui/recipe-collections";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const supabase = await createClient();
+  const { id } = await params;
+
+  // Fetch recipe with images
+  const { data: recipe } = await supabase
+    .from("recipes")
+    .select(
+      `
+      *,
+      recipe_images (
+        image_url,
+        display_order
+      )
+    `
+    )
+    .eq("id", id)
+    .single();
+
+  if (!recipe) {
+    return {
+      title: "Recipe Not Found",
+    };
+  }
+
+  // Get the first image (sorted by display_order)
+  const firstImage = recipe.recipe_images?.sort(
+    (a: { display_order?: number }, b: { display_order?: number }) =>
+      (a.display_order || 0) - (b.display_order || 0)
+  )?.[0]?.image_url;
+
+  // Get site URL from environment or use default
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const recipeUrl = `${siteUrl}/recipes/${id}`;
+
+  return {
+    title: recipe.title,
+    description:
+      recipe.description?.substring(0, 160) ||
+      `View recipe for ${recipe.title}`,
+    openGraph: {
+      title: recipe.title,
+      description:
+        recipe.description?.substring(0, 160) ||
+        `View recipe for ${recipe.title}`,
+      url: recipeUrl,
+      siteName: "Cookbook",
+      images: firstImage
+        ? [
+            {
+              url: firstImage,
+              width: 1200,
+              height: 630,
+              alt: recipe.title,
+            },
+          ]
+        : [],
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: recipe.title,
+      description:
+        recipe.description?.substring(0, 160) ||
+        `View recipe for ${recipe.title}`,
+      images: firstImage ? [firstImage] : [],
+    },
+  };
+}
+
 export default async function PublicRecipeDetailPage({
   params,
   searchParams,
