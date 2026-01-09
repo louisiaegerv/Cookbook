@@ -57,7 +57,10 @@ export default async function RecipesPage() {
     recipes?.map((recipe) => ({
       ...recipe,
       recipe_images: recipe.recipe_images?.sort(
-        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+        (
+          a: { id: string; image_url: string; display_order: number | null },
+          b: { id: string; image_url: string; display_order: number | null }
+        ) => (a.display_order ?? 0) - (b.display_order ?? 0)
       ),
     })) || [];
 
