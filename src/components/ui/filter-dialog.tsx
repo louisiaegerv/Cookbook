@@ -97,15 +97,15 @@ export default function FilterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
             Filter Recipes
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
           {/* Text Search */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Search</label>
@@ -155,47 +155,51 @@ export default function FilterDialog({
 
           {/* Tag Filter */}
           {allTags.length > 0 && (
-            <div className="space-y-2">
+            <div className="flex-1 overflow-hidden flex flex-col space-y-2">
               <label className="text-sm font-medium">Filter by Tags</label>
-              <div className="flex flex-wrap gap-2">
-                {allTags.map((tag) => {
-                  const isSelected = selectedTags.has(tag.id);
-                  return (
-                    <Badge
-                      key={tag.id}
-                      variant={isSelected ? "default" : "outline"}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      style={
-                        isSelected
-                          ? {
-                              backgroundColor: tag.color,
-                              color: "#fff",
-                            }
-                          : {
-                              borderColor: tag.color,
-                              color: tag.color,
-                            }
-                      }
-                      onClick={() => toggleTag(tag.id)}
-                    >
-                      {tag.name}
-                      {isSelected && <X className="h-3 w-3 ml-1" />}
-                    </Badge>
-                  );
-                })}
+              <div className="flex-1 overflow-y-auto -mx-4 px-4">
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => {
+                    const isSelected = selectedTags.has(tag.id);
+                    return (
+                      <Badge
+                        key={tag.id}
+                        variant={isSelected ? "default" : "outline"}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        style={
+                          isSelected
+                            ? {
+                                backgroundColor: tag.color,
+                                color: "#fff",
+                              }
+                            : {
+                                borderColor: tag.color,
+                                color: tag.color,
+                              }
+                        }
+                        onClick={() => toggleTag(tag.id)}
+                      >
+                        {tag.name}
+                        {isSelected && <X className="h-3 w-3 ml-1" />}
+                      </Badge>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
           {allTags.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No tags available. Add tags to your recipes to enable tag
-              filtering.
-            </p>
+            <div className="flex-1 overflow-y-auto -mx-4 px-4">
+              <p className="text-sm text-muted-foreground">
+                No tags available. Add tags to your recipes to enable tag
+                filtering.
+              </p>
+            </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4">
           <Button
             variant="outline"
             onClick={clearFilters}
