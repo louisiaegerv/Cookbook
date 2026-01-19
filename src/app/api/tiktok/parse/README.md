@@ -6,7 +6,7 @@ This API endpoint uses OpenRouter (a unified AI API gateway) to parse TikTok vid
 
 The parse endpoint accepts TikTok video data (typically obtained from the scrape endpoint) and uses AI to extract structured recipe information including title, ingredients, instructions, cooking times, servings, tags, and more.
 
-OpenRouter provides access to hundreds of AI models through a single OpenAI-compatible API endpoint. We use the `openai/gpt-4o-mini` model for cost-effective and accurate recipe parsing.
+OpenRouter provides access to hundreds of AI models through a single OpenAI-compatible API endpoint. We use the `google/gemini-2.5-flash-lite-preview-09-2025` model for cost-effective (1M token context, $0.10/M input tokens, $0.40/M output tokens) and accurate recipe parsing.
 
 ## Endpoint
 
@@ -31,7 +31,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 
 ### Supported Models
 
-The API uses `openai/gpt-4o-mini` by default, which provides:
+The API uses `google/gemini-2.5-flash-lite-preview-09-2025` by default, which provides:
 
 - Fast response times
 - Cost-effective pricing
@@ -42,7 +42,7 @@ You can modify the model in [`route.ts`](route.ts) by changing the `model` param
 
 - `anthropic/claude-3-haiku` - Fast and cost-effective
 - `openai/gpt-4o` - Higher accuracy, slightly more expensive
-- `google/gemini-flash-1.5` - Fast with good performance
+- `google/gemini-2.5-flash-lite-preview-09-2025` - Fast with good performance
 
 ## Request Format
 

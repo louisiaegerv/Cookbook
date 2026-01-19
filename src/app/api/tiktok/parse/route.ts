@@ -196,7 +196,7 @@ async function callOpenRouterApi(prompt: string): Promise<string> {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "openai/gpt-4o-mini",
+      model: "google/gemini-2.5-flash-lite-preview-09-2025",
       messages: [
         {
           role: "system",
@@ -259,7 +259,7 @@ function parseAIResponse(aiResponse: string): ParsedRecipeData {
     throw new Error(
       `Failed to parse AI response: ${
         error instanceof Error ? error.message : "Invalid JSON"
-      }`
+      }`,
     );
   }
 }
@@ -273,7 +273,7 @@ async function getOrCreateTikTokAuthor(
     nickname: string;
     verified?: boolean;
     followerCount?: number;
-  }
+  },
 ): Promise<{ data: any; error: any }> {
   try {
     // Check if author already exists
@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "videoData is required",
         } as ParseResponse,
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -373,7 +373,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Invalid TikTok video data structure",
         } as ParseResponse,
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -388,7 +388,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Rate limit exceeded. Please try again later.",
         } as ParseResponse,
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -439,7 +439,7 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("TikTok recipe parsing error:", error);
@@ -451,7 +451,7 @@ export async function POST(request: NextRequest) {
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
       } as ParseResponse,
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
           success: false,
           error: "description query parameter is required",
         } as ParseResponse,
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -519,7 +519,7 @@ export async function GET(request: NextRequest) {
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
       } as ParseResponse,
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
